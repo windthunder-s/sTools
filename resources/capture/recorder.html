@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: file:; connect-src 'none'; media-src 'self' blob: file:"
+    />
+    <title>sTools 录屏</title>
+    <link rel="stylesheet" href="capture.css" />
+  </head>
+  <body class="recorder qq-recorder">
+    <!-- QQ 风格：顶部居中控制条 -->
+    <div id="top-control-bar" class="qq-top-bar" hidden>
+      <div class="control-content">
+        <span id="record-state" role="status"></span
+        ><span id="record-time" class="time-display">00:00</span>
+        <div class="control-buttons">
+          <button id="pause-btn" class="control-icon-btn" title="暂停">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect x="6" y="4" width="4" height="16" fill="currentColor" />
+              <rect x="14" y="4" width="4" height="16" fill="currentColor" />
+            </svg>
+          </button>
+          <button id="resume-btn" class="control-icon-btn" hidden title="继续">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <polygon points="8,5 19,12 8,19" fill="currentColor" />
+            </svg>
+          </button>
+          <button id="stop-btn" class="control-icon-btn stop-btn" title="停止录制">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <rect x="6" y="6" width="12" height="12" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
+        <button id="close-control" class="control-icon-btn" title="关闭">×</button>
+      </div>
+    </div>
+
+    <!-- 倒计时全屏遮罩 -->
+    <div id="countdown-overlay" class="countdown-overlay" hidden>
+      <div class="countdown-number">3</div>
+    </div>
+
+    <!-- 摄像头画中画 -->
+    <div id="camera-pip" class="camera-pip" hidden>
+      <video id="camera-video" autoplay muted></video>
+      <button id="camera-close" class="pip-close">×</button>
+    </div>
+
+    <!-- 鼠标高亮效果（通过 canvas 绘制）-->
+    <canvas id="mouse-highlight" class="mouse-canvas" hidden></canvas>
+
+    <!-- 按键显示 -->
+    <div id="key-display" class="key-display" hidden>
+      <span id="key-text"></span>
+    </div>
+
+    <!-- 准备界面 -->
+    <div id="prepare-panel" class="prepare-panel">
+      <h2 id="record-title">录制设置</h2>
+      <p id="record-details" class="record-details"></p>
+      <div class="option-group">
+        <label class="option-item">
+          <input type="checkbox" id="enable-camera" />
+          <span>开启摄像头</span>
+        </label>
+        <label class="option-item">
+          <input type="checkbox" id="enable-system-audio" />
+          <span>录制系统声音</span>
+        </label>
+        <label class="option-item">
+          <input type="checkbox" id="enable-microphone" />
+          <span>录制麦克风</span>
+        </label>
+        <label class="option-item">
+          <input type="checkbox" id="enable-mouse-highlight" checked />
+          <span>鼠标高亮</span>
+        </label>
+        <label class="option-item">
+          <input type="checkbox" id="enable-key-display" checked />
+          <span>按键显示</span>
+        </label>
+      </div>
+
+      <div class="option-group">
+        <label class="option-label">录制质量</label>
+        <select id="quality-select" class="quality-select">
+          <option value="low">标清 (720p, 15fps)</option>
+          <option value="medium" selected>高清 (1080p, 30fps)</option>
+          <option value="high">超清 (1080p, 60fps)</option>
+        </select>
+      </div>
+
+      <div class="button-group">
+        <button id="start-record" class="primary-btn">开始录制</button>
+        <button id="cancel-record" class="secondary-btn">取消</button>
+      </div>
+
+      <div id="prepare-error" class="error-message" role="alert"></div>
+    </div>
+
+    <!-- 完成后的保存对话框 -->
+    <div id="save-dialog" class="save-dialog" hidden>
+      <div class="dialog-content">
+        <h3>录制完成</h3>
+        <div class="video-info">
+          <video id="preview-video" controls></video><img id="gif-preview" alt="GIF 预览" hidden />
+          <div class="info-text">
+            <p>时长: <span id="duration-text"></span></p>
+            <p>大小: <span id="size-text"></span></p>
+          </div>
+        </div>
+        <div class="dialog-buttons">
+          <button id="save-file-btn" class="primary-btn">保存文件</button>
+          <button id="edit-video-btn" class="secondary-btn">编辑</button>
+          <button id="discard-btn" class="secondary-btn">放弃</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="recorder.mjs"></script>
+  </body>
+</html>

@@ -2,7 +2,7 @@
   "$schema": "node_modules/@ztools-center/ztools-api-types/resource/ztools.schema.json",
   "name": "setting",
   "title": "设置",
-  "description": "ZTools 内置设置插件",
+  "description": "sTools 内置设置插件（基于 ZTools）",
   "author": "Zing",
   "version": "1.0.0",
   "main": "index.html",
@@ -15,37 +15,44 @@
       "code": "ui.router?router=GeneralSetting",
       "explain": "应用设置",
       "icon": "logo.png",
-      "cmds": ["通用设置"]
+      "cmds": [
+        "通用设置"
+      ]
     },
     {
       "code": "ui.router?router=Shortcuts",
       "explain": "快捷键",
       "icon": "logo.png",
-      "cmds": ["快捷键"]
+      "cmds": [
+        "快捷键管理",
+        "快捷键",
+        "kjj"
+      ]
     },
     {
       "code": "ui.router?router=Plugins",
-      "explain": "已安装插件",
+      "explain": "功能与插件",
       "icon": "logo.png",
-      "cmds": ["已安装插件"]
+      "cmds": [
+        "功能与插件",
+        "已安装插件"
+      ]
+    },
+    {
+      "code": "ui.router?router=PluginShortcuts",
+      "explain": "按功能查看和设置插件快捷键",
+      "cmds": [
+        "插件快捷键",
+        "插件快捷键汇总"
+      ]
     },
     {
       "code": "ui.router?router=Market",
-      "explain": "插件市场",
-      "icon": "logo.png",
-      "cmds": ["插件市场"]
-    },
-    {
-      "code": "function.plugin-market-search",
-      "explain": "插件市场搜索",
+      "explain": "ZTools 插件市场",
       "icon": "logo.png",
       "cmds": [
-        {
-          "type": "over",
-          "label": "插件市场搜索",
-          "minLength": 1,
-          "maxLength": 50
-        }
+        "插件市场",
+        "安装插件"
       ]
     },
     {
@@ -66,25 +73,25 @@
       "code": "ui.router?router=Data",
       "explain": "我的数据",
       "icon": "logo.png",
-      "cmds": ["我的数据"]
+      "cmds": [
+        "我的数据"
+      ]
     },
     {
       "code": "ui.router?router=AllCommands",
       "explain": "所有指令",
       "icon": "logo.png",
-      "cmds": ["所有指令"]
-    },
-    {
-      "code": "ui.router?router=Sync",
-      "explain": "WebDAV 同步",
-      "icon": "logo.png",
-      "cmds": ["WebDAV 同步"]
+      "cmds": [
+        "所有指令"
+      ]
     },
     {
       "code": "ui.router?router=About",
-      "explain": "关于 ZTools",
+      "explain": "关于 sTools",
       "icon": "logo.png",
-      "cmds": ["关于 ZTools"]
+      "cmds": [
+        "关于 sTools"
+      ]
     },
     {
       "code": "function.local-launch-add?router=LocalLaunch",
@@ -114,9 +121,19 @@
     },
     {
       "code": "function.exit",
-      "explain": "退出 ZTools",
+      "explain": "退出 sTools",
       "icon": "logo.png",
-      "cmds": ["退出 ZTools"]
+      "cmds": [
+        "退出 sTools"
+      ]
+    },
+    {
+      "code": "ui.router?router=Account",
+      "explain": "sTools 登录",
+      "icon": "logo.png",
+      "cmds": [
+        "登录 sTools"
+      ]
     }
   ]
 }

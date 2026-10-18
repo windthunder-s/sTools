@@ -43,7 +43,7 @@ async function writeFullInstallInfo(context) {
 
   // 标记必须位于最终 Resources 目录中，并在正式签名前完成写入。
   const packageJson = require('../package.json')
-  const appId = 'top.z-tools'
+  const appId = 'dev.stools.desktop'
   let resourcesPath = ''
   let updater = ''
 
@@ -271,7 +271,7 @@ module.exports = async function (context) {
   // 复制内置插件
   console.log('\n开始复制内置插件...')
   const internalPluginsDir = path.resolve(__dirname, '../internal-plugins')
-  const pluginNames = ['setting', 'system'] // 内置插件列表
+  const pluginNames = ['setting', 'system', 'local-tools', 'capture-tools'] // 内置插件列表
 
   try {
     let resourcesPath = ''

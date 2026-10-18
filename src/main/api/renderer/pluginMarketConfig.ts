@@ -1,154 +1,97 @@
-import {
-  loadOfficialAccountSession,
-  refreshOfficialAccountTokens,
-  saveOfficialAccountSession
-} from '../../core/account/officialAccountService'
+import { ECOSYSTEM_REMOVED_MESSAGE, isPublicPluginMarketUrl } from '../../../shared/ecosystemPolicy'
 import type { HttpRequestOptions, HttpResponse } from '../../utils/httpRequest'
 import { httpRequest } from '../../utils/httpRequest.js'
 import { OFFICIAL_SYNC_SERVER_URL } from '../../../shared/syncServerUrl'
 
 export const DEFAULT_SYNC_SERVER_URL = OFFICIAL_SYNC_SERVER_URL
-export const DEFAULT_PLUGIN_MARKET_API_BASE = `${OFFICIAL_SYNC_SERVER_URL.replace(/^wss:/, 'https:')}/api/market`
-
+export const DEFAULT_PLUGIN_MARKET_API_BASE = 'https://z.zosen.link/api/market'
 export class PluginMarketAuthRequiredError extends Error {
-  constructor(message = '需要登录后操作') {
+  /**
+   * 创建需要上游认证的错误；sTools 不接入该账号。
+   * @param message 错误说明。
+   * @returns 错误实例。
+   */
+  constructor(message = '此操作需要 ZTools 账号，sTools 仅接入公开插件市场') {
     super(message)
     this.name = 'PluginMarketAuthRequiredError'
   }
 }
-
-export const PluginMarketAuthMode = {
-  OPTIONAL: 'optional',
-  REQUIRED: 'required'
-} as const
-
+export const PluginMarketAuthMode = { OPTIONAL: 'optional', REQUIRED: 'required' } as const
 export type PluginMarketAuthMode = (typeof PluginMarketAuthMode)[keyof typeof PluginMarketAuthMode]
 
+/**
+ * 返回公开市场的固定 API 地址。
+ * @returns 市场 API 根地址。
+ */
 export function getPluginMarketApiBase(): string {
   return DEFAULT_PLUGIN_MARKET_API_BASE
 }
 
+/**
+ * 公开市场始终匿名访问，不读取或传递旧账号凭据。
+ * @param marketApiBase 保留兼容参数。
+ * @returns 空认证头。
+ */
 export async function getPluginMarketAuthHeaders(
   marketApiBase = getPluginMarketApiBase()
 ): Promise<Record<string, string>> {
   void marketApiBase
-  try {
-    const config = await loadOfficialAccountSession()
-    if (!config?.token) {
-      return {}
-    }
-    return { Authorization: `Bearer ${config.token}` }
-  } catch {
-    return {}
-  }
+  return {}
 }
 
+/**
+ * 以匿名 GET 请求公开市场，不执行认证刷新或社区写操作。
+ * @param path 市场相对路径或完整地址。
+ * @param options 请求选项。
+ * @param authMode 调用方所需认证级别。
+ * @returns 市场响应。
+ * @throws 请求越界、需要认证、超时或服务端失败时抛出错误。
+ */
 export async function requestPluginMarket(
   path: string,
   options: HttpRequestOptions = {},
   authMode: PluginMarketAuthMode = PluginMarketAuthMode.OPTIONAL
 ): Promise<HttpResponse> {
-  const marketApiBase = getPluginMarketApiBase()
-  const url = path.startsWith('http') ? path : `${marketApiBase}${path}`
-  const response = await requestPluginMarketOnce(url, marketApiBase, options)
-  if (response.status !== 401) {
-    assertOK(response)
-    return response
+  if (authMode === PluginMarketAuthMode.REQUIRED) throw new PluginMarketAuthRequiredError()
+  const url = path.startsWith('http') ? path : getPluginMarketApiBase() + path
+  if (
+    !isPublicPluginMarketUrl(url) ||
+    (options.method && options.method !== 'GET') ||
+    options.body
+  ) {
+    throw new Error('仅支持 ZTools 公开插件市场的只读接口')
   }
-
-  let refreshed = false
-  try {
-    refreshed = await refreshPluginMarketToken(marketApiBase)
-  } catch {
-    refreshed = false
-  }
-
-  if (refreshed) {
-    const retry = await requestPluginMarketOnce(url, marketApiBase, options)
-    if (retry.status !== 401) {
-      assertOK(retry)
-      return retry
-    }
-  }
-
-  if (authMode === PluginMarketAuthMode.OPTIONAL) {
-    const anonymousRetry = await requestPluginMarketOnce(url, marketApiBase, options, false)
-    assertOK(anonymousRetry)
-    return anonymousRetry
-  }
-
-  throw new PluginMarketAuthRequiredError()
+  // 不发送调用方传入的认证头或 Cookie，避免混用不同产品的账号。
+  const response = await httpRequest(url, {
+    method: 'GET',
+    timeoutMs: 15000,
+    validateStatus: (status) => (status >= 200 && status < 300) || status === 401 || status === 403
+  })
+  if (response.status === 401 || response.status === 403) throw new PluginMarketAuthRequiredError()
+  return response
 }
 
+/**
+ * 保留旧调用签名，但禁止保存上游市场账号。
+ * @param input 旧账号信息。
+ * @returns 拒绝的 Promise。
+ * @throws 当前产品不支持此账号服务。
+ */
 export async function savePluginMarketTokens(input: {
   serverUrl?: string
   token: string
   refreshToken?: string
   username?: string
 }): Promise<void> {
-  if (!input.username) throw new Error('官方账号用户名不能为空')
-  await saveOfficialAccountSession({
-    username: input.username,
-    token: input.token,
-    refreshToken: input.refreshToken || ''
-  })
-}
-
-async function requestPluginMarketOnce(
-  url: string,
-  marketApiBase: string,
-  options: HttpRequestOptions,
-  includeAuth = true
-): Promise<HttpResponse> {
-  const authHeaders = includeAuth ? await getPluginMarketAuthHeaders(marketApiBase) : {}
-  const optionHeaders = includeAuth
-    ? options.headers || {}
-    : Object.fromEntries(
-        Object.entries(options.headers || {}).filter(
-          ([key]) => key.toLowerCase() !== 'authorization'
-        )
-      )
-  return httpRequest(url, {
-    ...options,
-    headers: {
-      ...optionHeaders,
-      ...authHeaders
-    },
-    validateStatus: (status) => (status >= 200 && status < 300) || status === 401
-  })
+  void input
+  throw new Error(ECOSYSTEM_REMOVED_MESSAGE)
 }
 
 /**
- * 通过统一设备级刷新服务更新插件市场使用的官方账号 token。
- * @param marketApiBase 插件市场 API 地址；保留参数以兼容现有调用边界。
- * @returns 获得可用访问令牌时返回 true。
+ * 将 WebSocket 地址转换为对应 HTTP 地址。
+ * @param serverUrl 服务地址。
+ * @returns HTTP 地址。
  */
-async function refreshPluginMarketToken(marketApiBase: string): Promise<boolean> {
-  void marketApiBase
-  const config = await loadOfficialAccountSession()
-  if (!config?.refreshToken) {
-    return false
-  }
-  const result = await refreshOfficialAccountTokens(config.refreshToken)
-  return (
-    (result.status === 'refreshed' || result.status === 'reused') && Boolean(result.session.token)
-  )
-}
-
-function assertOK(response: HttpResponse): void {
-  if (response.status >= 200 && response.status < 300) return
-  const data = typeof response.data === 'string' ? safeParseJSON(response.data) : response.data
-  throw new Error(data?.error || `Request failed with status code ${response.status}`)
-}
-
-function safeParseJSON(value: string): any {
-  try {
-    return JSON.parse(value)
-  } catch {
-    return {}
-  }
-}
-
 export function syncServerUrlToHttp(serverUrl: string): string {
   return serverUrl.replace(/^ws:\/\//, 'http://').replace(/^wss:\/\//, 'https://')
 }

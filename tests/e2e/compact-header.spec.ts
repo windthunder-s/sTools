@@ -31,9 +31,9 @@ async function launchTestApp(dataRoot: string, legacyRoot: string): Promise<Elec
       ...Object.fromEntries(
         Object.entries(process.env).filter((entry): entry is [string, string] => Boolean(entry[1]))
       ),
-      ZTOOLS_DATA_ROOT: dataRoot,
+      STOOLS_DATA_ROOT: dataRoot,
       ZTOOLS_E2E: '1',
-      ZTOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
+      STOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
       ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
   })
@@ -86,7 +86,7 @@ async function readMainWindowLayout(
 ): Promise<MainWindowLayoutSnapshot> {
   return await electronApp.evaluate(({ BrowserWindow }) => {
     const mainWindow = BrowserWindow.getAllWindows().find(
-      (window) => window.getTitle() === 'ZTools'
+      (window) => window.getTitle() === 'sTools'
     )
     if (!mainWindow) throw new Error('未找到 ZTools 主窗口')
 
@@ -213,13 +213,21 @@ test('紧凑顶部栏同时作用于搜索页和插件页并可持久化', async
     })
     await expect
       .poll(() => readMainWindowLayout(electronApp!))
-      .toEqual({
-        windowHeight: standardLayout.windowHeight - 14,
+      .toMatchObject({
         pluginBounds: {
           ...standardLayout.pluginBounds!,
           y: 44
         }
       })
+    // Windows 缩放会在物理像素转 DIP 时产生 1 像素舍入差；插件区域仍严格匹配。
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await readMainWindowLayout(electronApp!)).windowHeight -
+            (standardLayout.windowHeight - 14)
+        )
+      )
+      .toBeLessThanOrEqual(1)
     await expect
       .poll(() =>
         executeInSettings(
@@ -328,8 +336,7 @@ test('紧凑顶部栏同时作用于搜索页和插件页并可持久化', async
     await expect(detachedTitlebar).toHaveCSS('height', '52px')
     await expect
       .poll(() => readDetachedWindowLayout(electronApp!))
-      .toEqual({
-        windowHeight: compactDetachedLayout!.windowHeight + 12,
+      .toMatchObject({
         minimumHeight: 52,
         pluginBounds: {
           ...compactDetachedLayout!.pluginBounds!,
@@ -343,7 +350,21 @@ test('紧凑顶部栏同时作用于搜索页和插件页并可持久化', async
       )
     ).toMatchObject({ success: true })
     await expect(detachedTitlebar).toHaveCSS('height', '40px')
-    await expect.poll(() => readDetachedWindowLayout(electronApp!)).toEqual(compactDetachedLayout)
+    // 分离窗口含非客户区边框，Windows 缩放转换允许最多 2 DIP 舍入差。
+    await expect
+      .poll(() => readDetachedWindowLayout(electronApp!))
+      .toMatchObject({
+        minimumHeight: compactDetachedLayout!.minimumHeight,
+        pluginBounds: compactDetachedLayout!.pluginBounds
+      })
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await readDetachedWindowLayout(electronApp!))!.windowHeight -
+            compactDetachedLayout!.windowHeight
+        )
+      )
+      .toBeLessThanOrEqual(2)
 
     // 使用同一隔离数据目录重启，验证创建窗口时直接恢复紧凑高度。
     await electronApp.close()

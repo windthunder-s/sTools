@@ -1,11 +1,9 @@
-appId: top.z-tools
-productName: ZTools
-publish:
-  provider: github
-  owner: ZToolsCenter
-  repo: ZTools
+appId: dev.stools.desktop
+productName: sTools
+publish: null
 directories:
   buildResources: build
+  output: release
 files:
   - '!**/.vscode/*'
   - '!**/.DS_Store'
@@ -17,8 +15,15 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,tsconfig.*.tsbuildinfo,vitest.config.*}'
   - '!{.claude/**,.githooks/**,.github/**}'
   - '!AGENTS.md'
+  - '!legacy/**'
+  - '!artifacts/**'
+  - '!release/**'
+  - '!*.ps1'
+  - '!README.upstream.md'
   - '!docs/**'
   - '!tests/**'
+  - '!test-results/**'
+  - '!playwright*.ts'
   - '!updater/**'
   - '!ztools-api-types/**'
   - '!ztools-plugin-cli/**'
@@ -34,15 +39,10 @@ asarUnpack:
   - resources/**
   - '**/node_modules/sharp/**/*'
   - '**/node_modules/@img/**/*'
-fileAssociations:
-  - ext: zpx
-    name: ZTools Plugin
-    description: ZTools Plugin Package
-    role: Viewer
 win:
   compression: maximum
-  executableName: ZTools
-  artifactName: ${name}-${version}-${os}-${arch}.${ext}
+  executableName: sTools
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
   target:
     - target: nsis
       arch:
@@ -51,11 +51,11 @@ win:
       arch:
         - x64
 nsis:
-  artifactName: ${name}-${version}-${os}-${arch}-setup.${ext}
+  artifactName: ${productName}-${version}-${os}-${arch}-setup.${ext}
   include: build/installer.nsh
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
+  createDesktopShortcut: false
   oneClick: false
   allowToChangeInstallationDirectory: true
   perMachine: false

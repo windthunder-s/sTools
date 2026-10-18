@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'"
+    />
+    <title>截图与录屏</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <img src="logo.svg" alt="" />
+      <div>
+        <h1>截图与录屏</h1>
+        <p>截图、标注、录屏和长截图，从这里开始。</p>
+      </div>
+      <span class="badge">sTools 内置</span>
+    </header>
+    <section class="quick-entry" aria-label="快速入口设置">
+      <div class="quick-heading">
+        <strong>快速入口</strong><button data-action="quick">立即开始</button>
+      </div>
+      <label for="default-mode"
+        >快速入口默认打开
+        <select id="default-mode">
+          <option value="capture">截图（推荐）</option>
+          <option value="record">录屏</option>
+          <option value="gif">GIF 动图</option>
+          <option value="scroll">长截图</option>
+        </select>
+      </label>
+      <p>常用截图保留默认即可。已有的独立截图、录屏快捷键，以及下面的功能按钮仍打开指定功能。</p>
+      <div class="shortcut-summary">
+        <p id="shortcut-status" role="status">正在读取快捷键…</p>
+        <button id="shortcuts">设置快捷键</button>
+      </div>
+    </section>
+    <section class="options">
+      <label
+        >显示器<select id="display" aria-label="显示器">
+          <option value="">跟随鼠标</option>
+        </select></label
+      >
+      <label><input id="system-audio" type="checkbox" />录制系统声音</label>
+      <label><input id="microphone" type="checkbox" />录制麦克风</label>
+    </section>
+    <main>
+      <button data-action="capture">
+        <strong>区域截图</strong><span>标注 · 荧光笔 · 马赛克 · 复制、保存与贴图</span>
+      </button>
+      <button data-action="record">
+        <strong>区域录屏</strong><span>3 秒倒计时 · 暂停 / 继续 · MP4 导出</span>
+      </button>
+      <button data-action="scroll">
+        <strong>长截图</strong><span>框选可滚动正文，慢慢向下滚动，拼接后保存</span>
+      </button>
+      <button data-action="gif">
+        <strong>GIF 动图</strong><span>最多 30 秒 · 无声 · 适合操作演示</span>
+      </button>
+      <button data-action="pin">
+        <strong>剪贴板贴图</strong><span>复制图片后点这里：置顶 · 拖动 · 大小与透明度</span>
+      </button>
+      <aside class="scroll-tip">
+        <strong>长截图小提示</strong
+        ><span>只框选正文，避开固定顶栏；每次滚动不超过选区的一半，等画面停稳后继续。</span>
+      </aside>
+    </main>
+    <p id="status" role="status" aria-live="polite"></p>
+    <footer>
+      <p>截图：Esc 取消 · Enter / Ctrl+C 复制 · Ctrl+S 保存 · Ctrl+T 贴图 · Ctrl+Z 撤销</p>
+      <button id="drafts">打开录屏草稿</button><span>未另存的录屏会保留在本机草稿目录。</span>
+    </footer>
+    <script src="app.js"></script>
+  </body>
+</html>

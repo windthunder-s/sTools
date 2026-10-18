@@ -61,6 +61,7 @@ interface InstalledPlugin {
 interface PluginMarketResponse {
   success: boolean
   data?: MarketPlugin[]
+  cached?: boolean
   storefront?: StorefrontPayload
   error?: string
 }
@@ -71,6 +72,8 @@ const storefrontSections = ref<StorefrontSection[]>([])
 const storefrontCategories = ref<Record<string, CategoryInfo>>({})
 const categoryLayouts = ref<Record<string, CategoryLayoutSection[]>>({})
 const isLoading = ref(false)
+const loadError = ref('')
+const usingCache = ref(false)
 const installingPlugin = ref<string | null>(null)
 const downloadStates = ref<Record<string, PluginDownloadState | undefined>>({})
 const bannerActiveIndexes = ref<Record<string, number>>({})
@@ -145,8 +148,13 @@ function enrichPlugins(
   })
 }
 
+/**
+ * 加载匿名市场目录，保留缓存并明确反馈网络错误。
+ * @returns 加载完成的 Promise。
+ */
 async function fetchPlugins(): Promise<void> {
   isLoading.value = true
+  loadError.value = ''
   try {
     const [marketResult, installedPlugins] = await Promise.all([
       window.ztools.internal.fetchPluginMarket(),
@@ -154,6 +162,7 @@ async function fetchPlugins(): Promise<void> {
     ])
 
     const typedMarketResult = marketResult as PluginMarketResponse
+    usingCache.value = !!typedMarketResult.cached
     const typedInstalledPlugins = installedPlugins as InstalledPlugin[]
 
     if (typedMarketResult.success && typedMarketResult.data) {
@@ -240,10 +249,12 @@ async function fetchPlugins(): Promise<void> {
         bannerActiveIndexes.value = {}
       }
     } else {
+      loadError.value = typedMarketResult.error || '市场暂时无法访问'
       console.error('获取插件市场列表失败:', typedMarketResult.error)
     }
     openPendingPluginDetail()
   } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '市场暂时无法访问'
     console.error('获取插件列表出错:', error)
   } finally {
     isLoading.value = false
@@ -596,6 +607,18 @@ onUnmounted(() => {
     <!-- 可滚动内容区 -->
     <Transition name="list-slide">
       <div v-show="showScrollableContent" class="scrollable-content">
+        <div class="market-source">
+          <div>
+            <strong>ZTools 插件市场</strong><span>免登录浏览和安装 · 插件由各自作者提供</span>
+          </div>
+          <button class="btn" :disabled="isLoading" @click="fetchPlugins">刷新</button>
+        </div>
+        <div v-if="usingCache && !isLoading" class="market-message" role="status">
+          网络暂不可用，正在显示上次缓存的插件目录。
+        </div>
+        <div v-if="loadError" class="market-message" role="alert">
+          {{ loadError }} <button class="btn" @click="fetchPlugins">重试</button>
+        </div>
         <div v-if="isLoading" class="loading-state">
           <div class="loading-spinner"></div>
           <span>加载中...</span>
@@ -805,6 +828,31 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.market-source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.market-source strong {
+  display: block;
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+.market-source span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.market-message {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
 .plugin-market {
   position: relative;
   height: 100%;

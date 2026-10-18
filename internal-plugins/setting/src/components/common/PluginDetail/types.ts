@@ -16,6 +16,7 @@ export interface PluginItem {
   features?: PluginFeature[]
   installed?: boolean
   isDevelopment?: boolean
+  isBuiltin?: boolean
   localVersion?: string
   path?: string
   size?: number

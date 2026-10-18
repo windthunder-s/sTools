@@ -1,3 +1,4 @@
+import { ZTOOLS_ECOSYSTEM_ENABLED } from '../../../shared/ecosystemPolicy'
 import { app } from 'electron'
 import pluginDeviceAPI from '../../api/plugin/device'
 import { httpRequest } from '../../utils/httpRequest'
@@ -29,7 +30,12 @@ class ActivityHeartbeatService {
     this.updateHandler = handler
   }
 
+  /**
+   * 根据产品策略启动心跳；当前产品不会创建上游联网任务。
+   * @returns 无返回值。
+   */
   start(): void {
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) return
     if (this.timer) return
     void this.sendHeartbeat()
     this.timer = setInterval(() => {
@@ -48,6 +54,7 @@ class ActivityHeartbeatService {
    * @returns 无返回值。
    */
   runNow(): void {
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) return
     if (process.env.ZTOOLS_E2E === '1') return
     void this.sendHeartbeat()
   }
@@ -57,6 +64,7 @@ class ActivityHeartbeatService {
    * @returns 上报完成后的 Promise。
    */
   private async sendHeartbeat(): Promise<void> {
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) return
     if (this.inFlight) return
     this.inFlight = true
     try {

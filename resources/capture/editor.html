@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"
+    />
+    <title>sTools 选区与标注</title>
+    <link rel="stylesheet" href="capture.css" />
+  </head>
+  <body class="editor">
+    <canvas id="screen" tabindex="-1" aria-label="拖动选择截图区域"></canvas>
+    <nav id="modebar" aria-label="截图方式">
+      <button data-mode="capture" aria-label="截图模式" aria-pressed="true">截图</button>
+      <button data-mode="record" aria-label="录屏模式" aria-pressed="false">录屏</button>
+      <button data-mode="scroll" aria-label="长截图模式" aria-pressed="false">长截图</button>
+      <button data-mode="gif" aria-label="GIF 模式" aria-pressed="false">GIF</button>
+    </nav>
+    <div id="hint">正在准备画面…</div>
+    <div id="dimensions" hidden><span id="size-value"></span><span class="size-unit">px</span></div>
+    <div id="magnifier" hidden>
+      <canvas id="mag-canvas" width="132" height="132"></canvas>
+      <div id="mag-info">
+        <div id="mag-rgb"></div>
+        <div id="mag-hex"></div>
+      </div>
+    </div>
+    <div id="toolbar" aria-label="截图工具栏" hidden>
+      <div class="toolbar-row">
+        <div id="draw-tools" class="tool-group">
+          <button
+            id="shape"
+            aria-pressed="false"
+            aria-controls="tool-options"
+            aria-expanded="false"
+            aria-label="形状"
+            title="形状"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 4h14v8M3 4v13h7M6 7h11v4" />
+              <ellipse cx="15.5" cy="16" rx="6.5" ry="4.5" />
+            </svg></button
+          ><button data-tool="arrow" aria-pressed="false" aria-label="箭头" title="箭头">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m3 18 7-8 5 4 6-9m-6 1 6-1-1 6" />
+            </svg></button
+          ><button data-tool="brush" aria-pressed="false" aria-label="画笔" title="画笔">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m5 16 11-12 4 4L9 20l-5 1 1-5ZM14 6l4 4M5 16l4 4" />
+              <path d="m17 3 1-1 4 4-1 1" />
+            </svg></button
+          ><button data-tool="marker" aria-pressed="false" aria-label="荧光笔" title="荧光笔">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m13 3 8 7-7 8-8-7 7-8ZM6 11l-3 7 3 3 8-3M3 18l4-4M3 21h7" />
+              <path d="m17 4 3 3" />
+            </svg></button
+          ><button data-tool="mosaic" aria-pressed="false" aria-label="马赛克" title="马赛克">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" />
+              <path d="M4 4h8v8H4Zm8 8h8v8h-8Z" class="icon-fill" stroke="none" />
+            </svg></button
+          ><button data-tool="line" aria-pressed="false" aria-label="直线" title="直线">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 19 19 5" />
+            </svg></button
+          ><button data-tool="text" aria-pressed="false" aria-label="文字" title="文字">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.5 4h17M12 4v17" />
+            </svg></button
+          ><button data-tool="number" aria-pressed="false" aria-label="序号" title="序号">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <text x="12" y="16" text-anchor="middle" font-size="12" fill="currentColor">1</text>
+            </svg></button
+          ><button
+            data-tool="picker"
+            aria-pressed="false"
+            aria-label="取色器"
+            title="取色器 (Alt+C)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m13 2 8 7-6 7-8-7 6-7ZM6 10l-3 7 3 3 8-3M3 17l4-4" />
+            </svg></button
+          ><button data-tool="eraser" aria-pressed="false" aria-label="橡皮擦" title="橡皮擦">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m13 3 8 7-10 11H7l-5-5L13 3Z" />
+              <path d="m13 3 8 7-5 6-8-7Z" class="icon-fill" />
+            </svg>
+          </button>
+        </div>
+        <div id="history-tools" class="tool-group">
+          <button id="undo" aria-label="撤销" title="撤销 (Ctrl+Z)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="m10 4-8 7 8 6v-4c6-1 9 2 10 7 2-9-2-13-10-13V4Z"
+                class="icon-fill"
+                stroke="none"
+              />
+            </svg></button
+          ><button id="redo" aria-label="重做" title="重做 (Ctrl+Y / Ctrl+Shift+Z)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="m14 4 8 7-8 6v-4c-6-1-9 2-10 7-2-9 2-13 10-13V4Z"
+                class="icon-fill"
+                stroke="none"
+              />
+            </svg>
+          </button>
+        </div>
+        <div id="record-tools" class="tool-group" hidden></div>
+        <div id="action-tools" class="tool-group">
+          <button id="cancel" aria-label="取消" title="取消 (Esc)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m5 5 14 14M19 5 5 19" />
+            </svg></button
+          ><button id="pin" aria-label="贴图" title="贴图 (Ctrl+T)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <g transform="rotate(38 12 12)">
+                <path d="M7 2h10v2h-2v6l4 4v2H5v-2l4-4V4H7Z" class="icon-fill" stroke="none" />
+                <path d="M12 15v8" />
+              </g>
+            </svg></button
+          ><button id="save" aria-label="保存 PNG" title="保存 PNG (Ctrl+S)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 3h13l3 3v15H4V3Zm4 0v7h8V3M8 21v-8h9v8" />
+              <path d="M14 5v3" />
+            </svg></button
+          ><button id="confirm" aria-label="复制截图" title="复制截图 (Enter / Ctrl+C)">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 7h13v14H8V7ZM5 17H3V3h14v2" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="tool-options" aria-label="标注选项" hidden>
+      <div id="shape-options" class="option-group" hidden>
+        <button data-tool="rect" aria-pressed="false" aria-label="矩形" title="矩形">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="4" y="5" width="16" height="14" />
+          </svg></button
+        ><button data-tool="ellipse" aria-pressed="false" aria-label="圆形" title="圆形">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <ellipse cx="12" cy="12" rx="8" ry="6.5" />
+          </svg></button
+        ><button data-tool="select" aria-pressed="false" aria-label="选区" title="选区">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5M8 12h8m-4-4v8" />
+          </svg></button
+        ><button id="whole" aria-label="全屏" title="全屏 (Ctrl+A)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5" />
+          </svg>
+        </button>
+      </div>
+      <label class="stroke-option" title="滚轮向上加粗，向下变细，每次 1 px">
+        粗细
+        <span class="stroke-preview" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle id="stroke-dot" cx="12" cy="12" r="2" /></svg>
+        </span>
+        <input
+          id="stroke"
+          type="number"
+          aria-label="线条粗细"
+          min="1"
+          step="1"
+          value="4"
+          inputmode="numeric"
+        />
+        <span>px</span>
+      </label>
+      <div id="color-options" class="option-group">
+        <div class="palette" aria-label="常用颜色">
+          <button
+            data-color="#ff473d"
+            class="swatch swatch-0"
+            aria-label="红色"
+            title="红色"
+          ></button
+          ><button
+            data-color="#ffbf00"
+            class="swatch swatch-1"
+            aria-label="黄色"
+            title="黄色"
+          ></button
+          ><button
+            data-color="#17b978"
+            class="swatch swatch-2"
+            aria-label="绿色"
+            title="绿色"
+          ></button
+          ><button
+            data-color="#2185f5"
+            class="swatch swatch-3"
+            aria-label="蓝色"
+            title="蓝色"
+          ></button
+          ><button
+            data-color="#ffffff"
+            class="swatch swatch-4"
+            aria-label="白色"
+            title="白色"
+          ></button
+          ><button
+            data-color="#222222"
+            class="swatch swatch-5"
+            aria-label="黑色"
+            title="黑色"
+          ></button>
+        </div>
+        <input id="color" type="color" value="#ff473d" aria-label="自定义颜色" title="自定义颜色" />
+      </div>
+      <span id="edit-status" role="status" hidden></span>
+    </div>
+    <textarea
+      id="text"
+      aria-label="标注文字"
+      placeholder="输入文字"
+      maxlength="2000"
+      spellcheck="false"
+      hidden
+    ></textarea>
+    <div id="error" role="alert"></div>
+    <script type="module" src="editor.mjs"></script>
+  </body>
+</html>

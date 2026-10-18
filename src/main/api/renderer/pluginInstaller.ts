@@ -1,3 +1,4 @@
+import { ECOSYSTEM_REMOVED_MESSAGE, PLUGIN_MARKET_ENABLED } from '../../../shared/ecosystemPolicy'
 import type { PluginManager } from '../../managers/pluginManager'
 import type { PluginDevProjectsAPI } from './pluginDevProjects'
 import { app, shell, type WebContents } from 'electron'
@@ -33,6 +34,7 @@ import {
   requestPluginMarket
 } from './pluginMarketConfig'
 import { getPluginsPath } from '../../core/appData/appDataPaths'
+import { isBundledInternalPlugin } from '../../core/internalPlugins'
 
 /** 插件的本地安装目录 */
 const PLUGIN_DIR = getPluginsPath()
@@ -226,17 +228,21 @@ export class PluginInstallerAPI {
   }
 
   /**
-   * 从插件市场安装插件。
+   * 从 ZTools 公开市场安装插件并记录来源。
    * 流程：调用市场下载接口获取下载地址 → 下载 .zpx 文件（最多重试 3 次）→ 自动检测 ZPX/ZIP 格式 → 安装 → 清理临时文件。
    * @param plugin 市场插件对象，必须包含 name 字段
    * @param webContents 接收下载进度的渲染进程
    * @returns 安装结果；成功时包含新的插件记录
    */
   public async installPluginFromMarket(plugin: any, webContents?: WebContents): Promise<any> {
+    // 市场安装只能解析官方目录中的插件，不覆盖随包内置功能。
+    if (!PLUGIN_MARKET_ENABLED) return { success: false, error: ECOSYSTEM_REMOVED_MESSAGE }
     const pluginName = plugin?.name
-    if (!pluginName) {
+    if (typeof pluginName !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(pluginName)) {
       return { success: false, error: '无效的插件信息' }
     }
+    if (isBundledInternalPlugin(pluginName))
+      return { success: false, error: '内置功能随 sTools 更新，不能由市场覆盖' }
 
     if (this.marketDownloadTasks.has(pluginName)) {
       return { success: false, error: '该插件正在下载中' }
@@ -315,7 +321,11 @@ export class PluginInstallerAPI {
       const { config: marketConfig, isZpx } = await this.readPluginJson(tempFilePath)
       console.log(`[Plugins] 市场插件格式: ${isZpx ? 'ZPX' : 'ZIP（兼容）'}`)
 
-      const result = await this.installFromPackageFile(tempFilePath, isZpx, marketConfig)
+      // 包内身份必须与用户选择一致，再原子发布并标记市场来源。
+      if (marketConfig.name !== pluginName) throw new Error('下载的插件与所选插件不一致')
+      const result = await this.installFromPackageFile(tempFilePath, isZpx, marketConfig, {
+        installSource: 'ztools-market'
+      })
       this.emitMarketDownloadProgress(task, {
         pluginName,
         taskId,
@@ -379,6 +389,7 @@ export class PluginInstallerAPI {
    * 请求插件市场并优先解析 ZPX 下载地址。
    * @param plugin 市场插件对象
    * @returns ZPX 下载地址；服务端未提供时回退 ZIP，插件信息无效时返回空字符串
+   * @throws 市场请求失败或返回非 HTTPS 地址时抛错。
    */
   private async resolveMarketDownloadUrl(plugin: any): Promise<string> {
     const pluginName = typeof plugin?.name === 'string' ? plugin.name : ''
@@ -386,14 +397,7 @@ export class PluginInstallerAPI {
       return ''
     }
 
-    // 优先使用插件对象自带的下载地址，兼容第三方市场（如 badbear）直接提供的完整 URL；
-    // 仅当插件未携带下载地址时，才回退到官方 server 端解析。
-    const providedDownloadUrl =
-      typeof plugin?.downloadUrl === 'string' ? plugin.downloadUrl.trim() : ''
-    if (providedDownloadUrl) {
-      return providedDownloadUrl
-    }
-
+    // 下载地址由公开市场解析，忽略页面或历史缓存提供的直链。
     const marketApiBase = getPluginMarketApiBase()
     const response = await requestPluginMarket(
       `${marketApiBase}/plugins/download?name=${encodeURIComponent(pluginName)}`,
@@ -403,10 +407,14 @@ export class PluginInstallerAPI {
     const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data
     // 新版优先安装 ZPX；回退 ZIP 仅用于服务端滚动升级和历史插件数据。
     if (typeof data?.zpxDownloadUrl === 'string' && data.zpxDownloadUrl.trim()) {
-      return data.zpxDownloadUrl.trim()
+      const url = new URL(data.zpxDownloadUrl.trim())
+      if (url.protocol !== 'https:') throw new Error('市场下载地址必须使用 HTTPS')
+      return url.href
     }
     if (typeof data?.downloadUrl === 'string' && data.downloadUrl.trim()) {
-      return data.downloadUrl.trim()
+      const url = new URL(data.downloadUrl.trim())
+      if (url.protocol !== 'https:') throw new Error('市场下载地址必须使用 HTTPS')
+      return url.href
     }
 
     return ''

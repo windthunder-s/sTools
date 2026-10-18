@@ -203,7 +203,7 @@ describe('ZTools 3.0 legacy import', () => {
       shouldPrompt: true
     })
 
-    fs.mkdirSync(path.join(homeDir, '.ztools'), { recursive: true })
+    fs.mkdirSync(path.join(homeDir, '.stools'), { recursive: true })
     expect(service.detect()).toMatchObject({
       initialized: false,
       legacyLmdbFound: true,
@@ -305,23 +305,23 @@ describe('ZTools 3.0 legacy import', () => {
     expect(result.copiedDirs).toEqual(['plugins', 'avatar'])
     expect(manager.getDeviceDb().get('ZTOOLS/settings-general')?.data.theme).toBe('light')
     expect(manager.getDeviceDb().get('ZTOOLS/settings-general')?.data.avatar).toBe(
-      pathToFileURL(path.join(homeDir, '.ztools', 'avatar', 'user.png')).href
+      pathToFileURL(path.join(homeDir, '.stools', 'avatar', 'user.png')).href
     )
     expect(manager.getDeviceDb().get('ZTOOLS/plugins')?.data[0]).toMatchObject({
       name: 'keep-installed',
-      path: path.join(homeDir, '.ztools', 'plugins', 'demo'),
-      logo: pathToFileURL(path.join(homeDir, '.ztools', 'plugins', 'demo', 'logo.png')).href,
+      path: path.join(homeDir, '.stools', 'plugins', 'demo'),
+      logo: pathToFileURL(path.join(homeDir, '.stools', 'plugins', 'demo', 'logo.png')).href,
       features: [
         {
           code: 'demo',
-          icon: pathToFileURL(path.join(homeDir, '.ztools', 'plugins', 'demo', 'logo.png')).href
+          icon: pathToFileURL(path.join(homeDir, '.stools', 'plugins', 'demo', 'logo.png')).href
         }
       ]
     })
-    expect(fs.existsSync(path.join(homeDir, '.ztools', 'plugins', 'demo', 'plugin.json'))).toBe(
+    expect(fs.existsSync(path.join(homeDir, '.stools', 'plugins', 'demo', 'plugin.json'))).toBe(
       true
     )
-    expect(fs.existsSync(path.join(homeDir, '.ztools', 'avatar', 'user.png'))).toBe(true)
+    expect(fs.existsSync(path.join(homeDir, '.stools', 'avatar', 'user.png'))).toBe(true)
     expect(manager.getAccountDb().get('PLUGIN/demo/settings')?.data.value).toBe('legacy')
     expect(
       Buffer.from(manager.getAccountDb().getAttachment('PLUGIN/demo/settings') || []).toString()

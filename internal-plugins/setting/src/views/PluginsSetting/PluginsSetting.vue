@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { BUNDLED_INTERNAL_PLUGIN_NAMES } from '@shared/bundledPlugins'
+import { PLUGIN_MARKET_ENABLED } from '@shared/ecosystemPolicy'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useToast, AdaptiveIcon } from '@/components'
 import type { PluginUninstallOptions } from '@/components'
@@ -7,6 +9,7 @@ import { compareVersions, upgradeInstalledPluginFromMarket, weightedSearch } fro
 import { useJumpFunction, useZtoolsSubInput } from '@/composables'
 import { jumpFunctionPluginMarketSetting } from '@/views/PluginMarketSetting/PluginMarketSetting'
 import { useRouter } from 'vue-router'
+import { jumpFunctionShortcutsSetting } from '@/views/ShortcutsSetting/ShortcutsSetting'
 
 // const emit = defineEmits<{
 //   (e: 'add-dev-consumed'): void
@@ -44,6 +47,7 @@ const npmInstallPanelRef = ref<InstanceType<typeof NpmInstallPanel>>()
 
 // 过滤状态
 const filterStatus = ref<'all' | 'running' | 'upgradable'>('all')
+const sourceFilter = ref('all')
 
 // 置顶列表（插件 path 有序数组，持久化到 db）
 const PINNED_PLUGINS_KEY = 'plugin-center-pinned'
@@ -52,13 +56,24 @@ const pinnedPluginPaths = ref<string[]>([])
 // 路由
 const router = useRouter()
 
-const { value: searchQuery } = useZtoolsSubInput('', '搜索已安装插件...')
+const { value: searchQuery } = useZtoolsSubInput('', '搜索功能、插件或指令...')
 // 先进行搜索过滤（不考虑运行状态）
 const searchFilteredPlugins = computed(() => {
-  return weightedSearch(plugins.value, searchQuery.value || '', [
-    { value: (p) => p.title || p.name || '', weight: 10 },
-    { value: (p) => p.description || '', weight: 5 }
-  ])
+  return weightedSearch(
+    plugins.value.filter((p) => sourceFilter.value === 'all' || p.source === sourceFilter.value),
+    searchQuery.value || '',
+    [
+      { value: (p) => p.title || p.name || '', weight: 10 },
+      { value: (p) => p.description || '', weight: 5 },
+      {
+        value: (p) =>
+          (p.features || [])
+            .flatMap((f: any) => (f.cmds || []).filter((c: any) => typeof c === 'string'))
+            .join(' '),
+        weight: 4
+      }
+    ]
+  )
 })
 
 // 全部插件数量（经过搜索过滤）
@@ -133,12 +148,15 @@ async function togglePin(plugin: any): Promise<void> {
   }
 }
 
-// 加载插件列表
+/**
+ * 加载内置和外部插件，随后异步检查市场更新。
+ * @returns 列表加载完成的 Promise。
+ */
 async function loadPlugins(): Promise<void> {
   isLoading.value = true
   try {
     const [installedPlugins, disabledPlugins] = await Promise.all([
-      window.ztools.internal.getPlugins(),
+      window.ztools.internal.getAllPlugins(),
       window.ztools.internal.getDisabledPlugins()
     ])
     disabledPluginPaths.value = disabledPlugins
@@ -151,16 +169,39 @@ async function loadPlugins(): Promise<void> {
   }
 
   // 异步获取市场数据，补充更新信息（不阻塞列表展示）
-  void checkMarketUpdates()
+  // 内置列表先显示；市场请求不阻塞本地使用。
+  if (PLUGIN_MARKET_ENABLED) void checkMarketUpdates()
 }
 
-// 将已安装插件列表按安装时间排序并设置初始字段
+/**
+ * 合并内置与外部插件，标注真实安装来源并排除内置更新。
+ * @param installedPlugins 完整本地插件列表。
+ * @param marketPluginMap 市场版本索引。
+ * @returns 按内置优先及安装时间排序的展示列表。
+ */
 function buildPluginList(installedPlugins: any[], marketPluginMap?: Map<string, any>): any[] {
   return installedPlugins
     .map((plugin: any) => {
-      const market = marketPluginMap?.get(plugin.name)
+      const isBuiltin = BUNDLED_INTERNAL_PLUGIN_NAMES.includes(plugin.name)
+      const source = isBuiltin
+        ? 'builtin'
+        : plugin.isDevelopment
+          ? 'development'
+          : plugin.installSource === 'ztools-market'
+            ? 'market'
+            : 'local'
+      const market =
+        isBuiltin || plugin.isDevelopment ? undefined : marketPluginMap?.get(plugin.name)
       return {
         ...plugin,
+        isBuiltin,
+        source,
+        sourceLabel: {
+          builtin: '内置',
+          development: '开发插件',
+          market: 'ZTools 市场',
+          local: '本地安装'
+        }[source],
         installed: true,
         localVersion: plugin.version,
         latestVersion: market?.version,
@@ -172,6 +213,12 @@ function buildPluginList(installedPlugins: any[], marketPluginMap?: Map<string, 
       }
     })
     .sort((a: any, b: any) => {
+      if (a.isBuiltin !== b.isBuiltin) return a.isBuiltin ? -1 : 1
+      if (a.isBuiltin)
+        return (
+          ['capture-tools', 'local-tools', 'system', 'setting'].indexOf(a.name) -
+          ['capture-tools', 'local-tools', 'system', 'setting'].indexOf(b.name)
+        )
       const timeA = a.installedAt ? new Date(a.installedAt).getTime() : 0
       const timeB = b.installedAt ? new Date(b.installedAt).getTime() : 0
       return timeB - timeA
@@ -393,9 +440,12 @@ async function handleKillPlugin(plugin: any): Promise<void> {
   }
 }
 
-// 停止所有插件
+/**
+ * 停止运行中的外部插件，保留内置设置和工具。
+ * @returns 操作完成的 Promise。
+ */
 async function handleKillAllPlugins(): Promise<void> {
-  const pluginsToKill = runningFilteredPlugins.value
+  const pluginsToKill = runningFilteredPlugins.value.filter((p) => !p.isBuiltin)
   if (isKillingAll.value || pluginsToKill.length === 0) return
 
   // 确认停止
@@ -453,8 +503,16 @@ async function handleKillAllPlugins(): Promise<void> {
   }
 }
 
-// 打开插件
+/**
+ * 打开有界面的插件；系统指令集合先展示具体指令供选择。
+ * @param plugin 已安装插件。
+ * @returns 操作完成的 Promise。
+ */
 async function handleOpenPlugin(plugin: any): Promise<void> {
+  if (plugin.isBuiltin) {
+    openPluginDetail(plugin)
+    return
+  }
   if (isPluginDisabled(plugin.path)) {
     warning('插件已禁用，请先在设置中启用')
     return
@@ -695,12 +753,72 @@ async function handleInstallFromNpm(data: {
     isImportingNpm.value = false
   }
 }
+/**
+ * 为指定功能直接打开全局快捷键编辑器。
+ * @param plugin 功能所属插件。
+ * @param feature 要绑定的功能。
+ * @returns 无返回值。
+ */
+function bindFeatureShortcut(plugin: any, feature: any): void {
+  const cmd = feature.cmds?.find((item: unknown) => typeof item === 'string')
+  if (cmd) jumpFunctionShortcutsSetting({ payload: plugin.name + '/' + cmd })
+}
+
+/**
+ * 从统一指令表启动明确选中的功能，保留宿主的禁用检查。
+ * @param plugin 功能所属插件。
+ * @param feature 要运行的功能。
+ * @returns 启动完成的 Promise。
+ */
+async function launchFeature(plugin: any, feature: any): Promise<void> {
+  try {
+    const result = await window.ztools.internal.getCommands()
+    // 指令 API 同时返回普通与匹配指令；按钮仅启动明确的普通指令。
+    const command = (result.commands || []).find(
+      (c: any) => c.path === plugin.path && c.featureCode === feature.code && c.cmdType === 'text'
+    )
+    if (!command) {
+      warning('该指令已禁用或暂不可用')
+      return
+    }
+    const launched = await window.ztools.internal.launch({
+      path: command.path,
+      type: command.type,
+      featureCode: command.featureCode,
+      name: command.name,
+      param: { payload: '' }
+    })
+    if (launched && !launched.success) error(launched.error || '启动失败')
+  } catch (err) {
+    error(err instanceof Error ? err.message : '启动失败，请重试')
+  }
+}
 </script>
 <template>
   <div class="content-panel">
     <!-- 可滚动内容区 -->
     <Transition name="list-slide">
       <div v-show="!isDetailVisible" class="scrollable-content">
+        <div class="library-heading">
+          <div>
+            <h2>功能与插件</h2>
+            <p>统一管理内置功能和已安装插件，按需设置快捷键。</p>
+          </div>
+          <button class="btn" @click="router.push('/market')">浏览插件市场</button>
+        </div>
+        <div class="library-filters">
+          <label
+            >来源
+            <select v-model="sourceFilter" aria-label="筛选插件来源">
+              <option value="all">全部来源</option>
+              <option value="builtin">内置</option>
+              <option value="market">ZTools 市场</option>
+              <option value="local">本地安装</option>
+              <option value="development">开发插件</option>
+            </select></label
+          >
+          <button class="btn" :disabled="isImporting" @click="importPlugin">导入本地插件</button>
+        </div>
         <div class="panel-header">
           <div class="tab-group">
             <button
@@ -719,6 +837,8 @@ async function handleInstallFromNpm(data: {
               运行中
               <span class="tab-count">{{ runningPluginsCount }}</span>
             </button>
+          </div>
+          <template v-if="PLUGIN_MARKET_ENABLED">
             <button
               class="tab-btn"
               :class="{ active: filterStatus === 'upgradable' }"
@@ -729,7 +849,7 @@ async function handleInstallFromNpm(data: {
                 {{ upgradableTabCount }}
               </span>
             </button>
-          </div>
+          </template>
           <div class="button-group">
             <div class="more-menu-wrapper">
               <button class="btn btn-more" @click="toggleMoreMenu">
@@ -749,6 +869,26 @@ async function handleInstallFromNpm(data: {
                 </svg>
               </button>
               <div v-if="showMoreMenu" class="more-menu" @click="closeMoreMenu">
+                <template v-if="PLUGIN_MARKET_ENABLED">
+                  <button
+                    class="more-menu-item"
+                    :disabled="
+                      isUpgradingAll || isCheckingMarketUpdates || upgradablePluginsCount === 0
+                    "
+                    @click="handleUpgradeAllPlugins"
+                  >
+                    <div class="i-z-refresh font-size-16px" />
+                    {{
+                      isCheckingMarketUpdates
+                        ? '检测更新中...'
+                        : isUpgradingAll
+                          ? `更新中... ${upgradeProgressDone}/${upgradeProgressTotal}`
+                          : upgradablePluginsCount > 0
+                            ? `全部更新 (${upgradablePluginsCount})`
+                            : '暂无可更新'
+                    }}
+                  </button>
+                </template>
                 <button class="more-menu-item" :disabled="isImporting" @click="importPlugin">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -791,24 +931,6 @@ async function handleInstallFromNpm(data: {
                 </button>
                 <button
                   class="more-menu-item"
-                  :disabled="
-                    isUpgradingAll || isCheckingMarketUpdates || upgradablePluginsCount === 0
-                  "
-                  @click="handleUpgradeAllPlugins"
-                >
-                  <div class="i-z-refresh font-size-16px" />
-                  {{
-                    isCheckingMarketUpdates
-                      ? '检测更新中...'
-                      : isUpgradingAll
-                        ? `更新中... ${upgradeProgressDone}/${upgradeProgressTotal}`
-                        : upgradablePluginsCount > 0
-                          ? `全部更新 (${upgradablePluginsCount})`
-                          : '暂无可更新'
-                  }}
-                </button>
-                <button
-                  class="more-menu-item"
                   :disabled="isExportingAll"
                   @click="handleExportAllPlugins"
                 >
@@ -831,7 +953,7 @@ async function handleInstallFromNpm(data: {
                 </button>
                 <button
                   class="more-menu-item kill-all-item"
-                  :disabled="isKillingAll || runningPluginsCount === 0"
+                  :disabled="isKillingAll || !runningFilteredPlugins.some((p) => !p.isBuiltin)"
                   @click="handleKillAllPlugins"
                 >
                   <svg
@@ -859,6 +981,7 @@ async function handleInstallFromNpm(data: {
           <div
             v-for="plugin in filteredPlugins"
             :key="plugin.path"
+            :data-plugin-name="plugin.name"
             class="card plugin-item"
             :title="plugin.description"
             @click="openPluginDetail(plugin)"
@@ -872,7 +995,9 @@ async function handleInstallFromNpm(data: {
                 draggable="false"
               />
               <div v-else class="plugin-icon-placeholder">🧩</div>
-              <span v-if="plugin.isDevelopment" class="plugin-dev-badge">DEV</span>
+              <span v-if="plugin.isDevelopment && !plugin.isBuiltin" class="plugin-dev-badge"
+                >DEV</span
+              >
               <span
                 v-if="plugin.hasUpdate"
                 class="plugin-update-dot"
@@ -883,6 +1008,7 @@ async function handleInstallFromNpm(data: {
             <div class="plugin-info">
               <div class="plugin-name">
                 {{ plugin.title || plugin.name }}
+                <span class="source-badge" :class="plugin.source">{{ plugin.sourceLabel }}</span>
                 <span class="plugin-version">v{{ plugin.version }}</span>
                 <span v-if="isPluginDisabled(plugin.path)" class="disabled-badge">已禁用</span>
                 <span v-if="isPluginRunning(plugin.path)" class="running-badge">
@@ -891,13 +1017,32 @@ async function handleInstallFromNpm(data: {
                 </span>
               </div>
               <div class="plugin-desc">{{ plugin.description || '暂无描述' }}</div>
+              <div
+                v-if="['local-tools', 'capture-tools'].includes(plugin.name)"
+                class="feature-actions"
+                @click.stop
+              >
+                <div v-for="feature in plugin.features" :key="feature.code" class="feature-action">
+                  <button @click="launchFeature(plugin, feature)">{{ feature.cmds[0] }}</button>
+                  <button
+                    class="shortcut-action"
+                    :aria-label="'设置' + feature.cmds[0] + '快捷键'"
+                    @click="bindFeatureShortcut(plugin, feature)"
+                  >
+                    快捷键
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="plugin-meta">
+              <button class="icon-btn" title="指令与快捷键" @click.stop="openPluginDetail(plugin)">
+                <div class="i-z-keyboard font-size-16px" />
+              </button>
               <button
                 class="icon-btn open-btn"
                 :disabled="isPluginDisabled(plugin.path)"
-                title="打开插件"
+                :title="plugin.isBuiltin ? '查看指令' : '打开插件'"
                 @click.stop="handleOpenPlugin(plugin)"
               >
                 <svg
@@ -915,7 +1060,7 @@ async function handleInstallFromNpm(data: {
                 </svg>
               </button>
               <button
-                v-if="isPluginRunning(plugin.path)"
+                v-if="!plugin.isBuiltin && isPluginRunning(plugin.path)"
                 class="icon-btn kill-btn"
                 title="终止运行"
                 :disabled="isKilling"
@@ -985,7 +1130,7 @@ async function handleInstallFromNpm(data: {
           <div v-if="!isLoading && plugins.length === 0" class="empty-state">
             <div class="i-z-plugin empty-icon font-size-64px" />
             <div class="empty-text">暂无插件</div>
-            <div class="empty-hint">点击"导入本地插件"来安装你的第一个插件</div>
+            <div class="empty-hint">从插件市场安装，或导入本地插件包</div>
           </div>
 
           <!-- 更新栏目为空 -->
@@ -1013,7 +1158,7 @@ async function handleInstallFromNpm(data: {
           >
             <div class="i-z-plugin empty-icon font-size-64px" />
             <div class="empty-text">未找到匹配的插件</div>
-            <div class="empty-hint">尝试使用其他关键词搜索</div>
+            <div class="empty-hint">尝试更换来源筛选或搜索关键词</div>
           </div>
         </div>
       </div>
@@ -1027,7 +1172,7 @@ async function handleInstallFromNpm(data: {
         :is-running="isPluginRunning(selectedPlugin.path)"
         :is-pinned="isPluginPinned(selectedPlugin.path)"
         :is-disabled="isPluginDisabled(selectedPlugin.path)"
-        :show-market-button="!!selectedPlugin.marketPlugin"
+        :show-market-button="!selectedPlugin.isBuiltin && !!selectedPlugin.marketPlugin"
         @back="closePluginDetail"
         @open="handleOpenPlugin(selectedPlugin)"
         @uninstall="handleUninstallFromDetail(selectedPlugin, $event)"
@@ -1053,6 +1198,78 @@ async function handleInstallFromNpm(data: {
 </template>
 
 <style scoped>
+.library-heading,
+.library-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.library-heading h2 {
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+.library-heading p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.library-filters label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.library-filters select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  background: var(--control-bg);
+}
+.source-badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  background: var(--control-bg);
+}
+.source-badge.builtin,
+.source-badge.market {
+  color: var(--primary-color);
+  background: var(--primary-light-bg);
+}
+.feature-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.feature-action {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.feature-action button {
+  cursor: pointer;
+  border: 0;
+  padding: 5px 8px;
+  background: var(--control-bg);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.feature-action button:hover {
+  background: var(--hover-bg);
+  color: var(--primary-color);
+}
+.feature-action .shortcut-action {
+  border-left: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
 .content-panel {
   position: relative;
   /* 使详情面板能够覆盖该区域 */
@@ -1109,6 +1326,8 @@ async function handleInstallFromNpm(data: {
 /* 插件中心样式 */
 .panel-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;

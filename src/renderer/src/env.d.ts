@@ -72,12 +72,14 @@ declare global {
       }
     }
     ztools: {
+      fileSearch: import('@shared/fileSearch').FileSearchAPI
+      everything: import('@shared/unifiedSearch').EverythingSearchAPI
       getApps: () => Promise<Array<{ name: string; path: string; icon?: string }>>
       getSystemSettings: () => Promise<any[]>
       isWindows: () => Promise<boolean>
       launch: (options: {
         path: string
-        type?: 'direct' | 'plugin' | 'builtin' | 'file'
+        type?: 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
         featureCode?: string
         param?: any
         name?: string
@@ -216,7 +218,7 @@ declare global {
       onIpcLaunch: (
         callback: (options: {
           path: string
-          type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file'
+          type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
           featureCode?: string
           param?: any
           name?: string
@@ -231,7 +233,8 @@ declare global {
         shortcut: string,
         target: string,
         autoCopy?: boolean,
-        preScreenshotOptimization?: boolean
+        preScreenshotOptimization?: boolean,
+        replaceTarget?: string
       ) => Promise<{ success: boolean; error?: string }>
       unregisterGlobalShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>
       updateGlobalShortcutConfig: (

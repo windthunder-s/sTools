@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"
+    />
+    <title>sTools 长截图</title>
+    <link rel="stylesheet" href="capture.css" />
+  </head>
+  <body class="scroll-capture qq-style">
+    <!-- 控制面板 - 悬浮在右侧 -->
+    <div id="control-panel" class="scroll-control-panel">
+      <h3>长截图</h3>
+
+      <div class="scroll-status">
+        <div class="status-item">
+          <span class="label">已捕获:</span>
+          <span id="captured-count" class="value">0</span>
+          <span class="unit">段</span>
+        </div>
+        <div class="status-item">
+          <span class="label">高度:</span>
+          <span id="total-height" class="value">0</span>
+          <span class="unit">px</span>
+        </div>
+      </div>
+
+      <div class="scroll-options">
+        <label class="option-row">
+          <span>滚动模式</span>
+          <select id="scroll-mode" class="mode-select">
+            <option value="auto">自动滚动（暂未支持）</option>
+            <option value="manual" selected>手动滚动</option>
+          </select>
+        </label>
+
+        <label class="option-row" id="speed-control">
+          <span>滚动速度</span>
+          <select id="scroll-speed">
+            <option value="slow">慢速</option>
+            <option value="medium" selected>中速</option>
+            <option value="fast">快速</option>
+          </select>
+        </label>
+
+        <label class="option-row">
+          <input type="checkbox" id="remove-fixed-header" checked />
+          <span>移除固定栏</span>
+        </label>
+      </div>
+
+      <div class="scroll-buttons">
+        <button id="start-scroll" class="primary-btn">开始</button>
+        <button id="pause-scroll" class="secondary-btn" disabled>暂停</button>
+        <button id="stop-scroll" class="secondary-btn" disabled>停止</button>
+      </div>
+
+      <div id="scroll-progress" class="progress-bar" hidden>
+        <div id="progress-fill" class="progress-fill"></div>
+        <div id="progress-text" class="progress-text">正在滚动...</div>
+      </div>
+
+      <p id="scroll-status" role="status"></p>
+
+      <button id="close-panel" class="close-btn">×</button>
+    </div>
+
+    <!-- 预览和完成界面 -->
+    <div id="preview-panel" class="preview-panel" hidden>
+      <div class="preview-header">
+        <h3>长截图预览</h3>
+        <div class="preview-info">
+          <span>尺寸: <span id="preview-size"></span></span>
+          <span>段数: <span id="preview-segments"></span></span>
+        </div>
+      </div>
+
+      <div class="preview-container">
+        <canvas id="preview-canvas"></canvas>
+      </div>
+
+      <div class="preview-actions">
+        <button id="save-long-screenshot" class="primary-btn">保存图片</button>
+        <button id="copy-long-screenshot" class="secondary-btn">复制到剪贴板</button>
+        <button id="edit-long-screenshot" class="secondary-btn">编辑</button>
+        <button id="close-preview" class="secondary-btn">关闭</button
+        ><button id="retry-scroll" class="secondary-btn">重新截取</button>
+      </div>
+    </div>
+
+    <!-- 滚动提示 -->
+    <div id="scroll-hint" class="scroll-hint" hidden>
+      <div class="hint-content">
+        <div class="hint-icon">↓</div>
+        <div class="hint-text">自动滚动中...</div>
+        <div class="hint-subtext">请保持页面可见</div>
+      </div>
+    </div>
+
+    <div id="scroll-error" class="error-message" role="alert"></div>
+    <script type="module" src="scroll.mjs"></script>
+  </body>
+</html>

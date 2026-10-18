@@ -12,6 +12,14 @@ const props = defineProps<{
   showDownloadCount?: boolean
 }>()
 
+const logoFailed = ref(false)
+watch(
+  () => props.plugin.logo,
+  () => {
+    logoFailed.value = false
+  }
+)
+
 const emit = defineEmits<{
   (e: 'download'): void
   (e: 'upgrade'): void
@@ -86,7 +94,8 @@ function openHomepage(): void {
       <!-- 左侧：图标 + 信息 -->
       <div class="detail-left">
         <img
-          v-if="plugin.logo"
+          v-if="plugin.logo && !logoFailed"
+          @error="logoFailed = true"
           :src="plugin.logo"
           class="detail-icon"
           alt="插件图标"

@@ -1,0 +1,53 @@
+{
+  "name": "capture-tools",
+  "title": "截图与录屏",
+  "description": "sTools 自带截图、标注、贴图、区域录屏、GIF 与滚动长截图",
+  "version": "1.0.0",
+  "author": "sTools",
+  "main": "index.html",
+  "preload": "preload.js",
+  "logo": "logo.svg",
+  "features": [
+    {
+      "code": "home",
+      "explain": "截图与录屏工具面板",
+      "cmds": ["截图工具", "截图与录屏", "capture"]
+    },
+    {
+      "code": "quick",
+      "explain": "快速截图入口：默认截图，可在工具面板改为录屏、GIF 或长截图",
+      "cmds": ["快速截图", "快速截图入口"],
+      "mainHide": true
+    },
+    {
+      "code": "capture",
+      "explain": "区域截图、标注、复制、保存与贴图",
+      "cmds": ["sTools 截图", "区域截图", "截图标注"],
+      "mainHide": true
+    },
+    {
+      "code": "scroll",
+      "explain": "框选可滚动正文，手动向下滚动并拼接成长截图",
+      "cmds": ["长截图", "滚动截图", "sTools 长截图"],
+      "mainHide": true
+    },
+    {
+      "code": "record",
+      "explain": "区域录屏，支持暂停与 MP4 导出",
+      "cmds": ["sTools 录屏", "区域录屏", "录屏"],
+      "mainHide": true
+    },
+    {
+      "code": "gif",
+      "explain": "选择区域录制 GIF 动图",
+      "cmds": ["GIF 录制", "录制动图", "gif"],
+      "mainHide": true
+    },
+    {
+      "code": "pin",
+      "explain": "将剪贴板图片置顶贴到屏幕",
+      "cmds": ["sTools 贴图", "剪贴板贴图"],
+      "mainHide": true
+    }
+  ]
+}

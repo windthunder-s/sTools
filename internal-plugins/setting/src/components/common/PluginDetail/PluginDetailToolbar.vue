@@ -2,6 +2,7 @@
 defineProps<{
   isRunning?: boolean
   isDevelopment?: boolean
+  isBuiltin?: boolean
   installed?: boolean
   // 已安装插件特有
   isPinned?: boolean
@@ -51,7 +52,7 @@ function handleDisabledToggle(event: Event): void {
       <div class="i-z-play font-size-16px" />
     </button>
     <button
-      v-if="isRunning"
+      v-if="isRunning && !isBuiltin"
       class="icon-btn topbar-action-btn kill-btn"
       title="终止运行"
       @click="emit('kill')"
@@ -73,7 +74,12 @@ function handleDisabledToggle(event: Event): void {
     >
       <div class="i-z-store font-size-16px" />
     </button>
-    <button class="icon-btn topbar-action-btn delete-btn" title="卸载" @click="emit('uninstall')">
+    <button
+      v-if="!isBuiltin"
+      class="icon-btn topbar-action-btn delete-btn"
+      title="卸载"
+      @click="emit('uninstall')"
+    >
       <div class="i-z-trash font-size-16px" />
     </button>
     <button
@@ -99,7 +105,7 @@ function handleDisabledToggle(event: Event): void {
         <line x1="12" y1="10" x2="12" y2="20"></line>
       </svg>
     </button>
-    <div class="topbar-settings-wrapper">
+    <div v-if="!isBuiltin" class="topbar-settings-wrapper">
       <button
         class="icon-btn topbar-action-btn"
         :class="{ active: showSettingsDropdown }"

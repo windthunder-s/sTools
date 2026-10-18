@@ -371,9 +371,14 @@ export class PluginManager {
   }
 
   /**
-   * 判断是否跳过重入（同文本指令 + 同 featureCode → true）
+   * 仅让可见单例页面跳过同指令重入；后台动作每次都需要执行。
+   * @param pluginPath 插件目录。
+   * @param featureCode 本次指令。
+   * @returns 是否只聚焦原页面而不触发 PluginEnter。
    */
   private shouldSkipReEnter(pluginPath: string, featureCode: string): boolean {
+    // 截图等 mainHide 动作完成后插件仍在缓存中，不能因此吞掉下一次快捷键。
+    if (this.isFeatureMainHide(pluginPath, featureCode)) return false
     const lastState = this.pluginLastEnterState.get(pluginPath)
     if (!lastState) return false
     const currentCmdType = api.getLaunchParam()?.type || 'text'

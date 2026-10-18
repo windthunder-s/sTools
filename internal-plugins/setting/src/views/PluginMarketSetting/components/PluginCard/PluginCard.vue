@@ -1,14 +1,23 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { AdaptiveIcon } from '@/components'
 import ProgressCircleButton from '@/components/common/ProgressCircleButton/ProgressCircleButton.vue'
 import type { Plugin, PluginDownloadState } from '../types'
 
-defineProps<{
+const props = defineProps<{
   plugin: Plugin
   installingPlugin: string | null
   canUpgrade: boolean
   downloadState?: PluginDownloadState
 }>()
+
+const logoFailed = ref(false)
+watch(
+  () => props.plugin.logo,
+  () => {
+    logoFailed.value = false
+  }
+)
 
 defineEmits<{
   (e: 'click'): void
@@ -18,9 +27,16 @@ defineEmits<{
 }>()
 </script>
 <template>
-  <div class="card plugin-card" :title="plugin.description" @click="$emit('click')">
+  <div
+    class="card plugin-card"
+    :data-plugin-name="plugin.name"
+    :title="plugin.description"
+    @click="$emit('click')"
+  >
     <div class="plugin-icon">
       <AdaptiveIcon
+        v-if="plugin.logo && !logoFailed"
+        @error="logoFailed = true"
         :src="plugin.logo ?? ''"
         class="plugin-logo-img"
         alt="icon"
@@ -28,6 +44,9 @@ defineEmits<{
         decoding="async"
         draggable="false"
       />
+      <div v-else class="plugin-logo-img icon-placeholder" aria-hidden="true">
+        {{ (plugin.title || plugin.name).slice(0, 1) }}
+      </div>
     </div>
     <div class="plugin-info">
       <div class="plugin-name">{{ plugin.title || plugin.name }}</div>
@@ -142,6 +161,14 @@ defineEmits<{
 </template>
 
 <style scoped>
+.icon-placeholder {
+  display: grid;
+  place-items: center;
+  background: var(--primary-light-bg);
+  color: var(--primary-color);
+  font-weight: 600;
+  font-size: 22px;
+}
 .plugin-card {
   display: flex;
   align-items: center;

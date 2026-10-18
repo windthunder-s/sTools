@@ -33,7 +33,7 @@ interface PluginInfo {
   subInputVisible?: boolean
 }
 
-export const DEFAULT_PLACEHOLDER = '搜索应用和指令 / 粘贴文件或图片'
+export const DEFAULT_PLACEHOLDER = '搜索文件、应用、插件 / 粘贴文件或图片'
 export const DEFAULT_AVATAR = defaultAvatar
 
 // 自动粘贴选项
@@ -642,7 +642,10 @@ export const useWindowStore = defineStore('window', () => {
       const data = await window.ztools.dbGet('settings-general')
       if (data) {
         if (data.placeholder) {
-          placeholder.value = data.placeholder
+          placeholder.value =
+            data.placeholder === '搜索应用和指令 / 粘贴文件或图片'
+              ? DEFAULT_PLACEHOLDER
+              : data.placeholder
         }
         // 只有自定义头像才从数据库加载
         // 如果数据库中是默认头像路径（历史数据），不加载，使用内置的默认头像

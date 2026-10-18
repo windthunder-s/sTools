@@ -85,6 +85,7 @@ export type CommandType =
   | 'direct' // 直接启动（app + system-setting）
   | 'plugin' // 插件功能
   | 'builtin' // 内置功能
+  | 'local-file' // Everything 的本机文件、文件夹和程序，交给系统安全打开
 
 // 子类型（用于区分 direct 类型的具体来源）
 export type CommandSubType =
@@ -114,6 +115,7 @@ export interface Command {
   // 系统设置字段（新增）
   settingUri?: string // ms-settings URI
   category?: string // 分类（用于分组显示）
+  searchSource?: 'everything' // 主搜索索引结果，使用本机文件操作
   confirmDialog?: any // 确认对话框配置
   originalName?: string // 原始名称（用于 direct/app 旧版禁用键兼容）
   persistedName?: string // 持久化记录里的名称（用于历史/固定在 alias 删除后的删除与取消固定）

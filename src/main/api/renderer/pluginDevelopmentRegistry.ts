@@ -1,4 +1,5 @@
 import path from 'path'
+import { BUNDLED_INTERNAL_PLUGIN_NAMES } from '../../../shared/bundledPlugins'
 import { toDevPluginName } from '../../../shared/pluginRuntimeNamespace'
 
 // ============================================================
@@ -137,7 +138,7 @@ export const DEV_PROJECT_REGISTRY_DB_KEY = 'dev-plugin-registry'
 /** 当前注册表文档版本号，版本不匹配时重建空文档 */
 const DEV_PROJECT_REGISTRY_VERSION = 3 as const
 /** 内置插件名称集合，这些名称不允许作为开发项目注册 */
-const BUILT_IN_NAMES = new Set(['setting', 'system'])
+const BUILT_IN_NAMES = new Set<string>(BUNDLED_INTERNAL_PLUGIN_NAMES)
 /** 合法的绑定状态枚举值，用于反序列化时校验 */
 const VALID_BINDING_STATUSES = new Set<DevProjectBindingStatus>([
   'ready',

@@ -36,6 +36,7 @@ const mocks = vi.hoisted(() => {
   })
 
   return {
+    allowUpdates: true,
     browserWindow,
     ipcListeners,
     latestWindow,
@@ -44,6 +45,14 @@ const mocks = vi.hoisted(() => {
     windowOpenHandler
   }
 })
+
+// 保留上游更新器行为测试；新加的隔离用例单独关闭产品开关。
+vi.mock('../../src/shared/productPolicy', () => ({
+  get APP_UPDATES_ENABLED() {
+    return mocks.allowUpdates
+  },
+  MANUAL_UPDATE_MESSAGE: 'sTools 当前使用手动安装包更新'
+}))
 
 vi.mock('electron', () => ({
   app: {
@@ -118,14 +127,30 @@ vi.mock('../../src/main/api/serverUpdateCatalog', () => ({
 }))
 
 import { UpdaterAPI } from '../../src/main/api/updater'
+import { fetchLatestServerUpdate } from '../../src/main/api/serverUpdateCatalog'
 
 describe('updater window controls', () => {
   beforeEach(() => {
+    mocks.allowUpdates = true
     vi.clearAllMocks()
     mocks.ipcListeners.clear()
     mocks.navigationListeners.clear()
     mocks.latestWindow.current = null
     mocks.windowOpenHandler.current = null
+  })
+
+  it('sTools 禁用更新时不查询上游，不展示心跳版本，也不允许下载', async () => {
+    mocks.allowUpdates = false
+    const api = new UpdaterAPI()
+    expect(await api.checkUpdate()).toMatchObject({ hasUpdate: false, status: 'disabled' })
+    expect(fetchLatestServerUpdate).not.toHaveBeenCalled()
+    await api.handleHeartbeatUpdate({ available: true, latestVersion: '99.0.0' } as any)
+    expect(mocks.browserWindow).not.toHaveBeenCalled()
+    expect(await api.startUpdate()).toMatchObject({
+      success: false,
+      error: 'sTools 当前使用手动安装包更新'
+    })
+    expect(mocks.openExternal).not.toHaveBeenCalled()
   })
 
   it('creates a minimizable window and minimizes it through IPC', async () => {

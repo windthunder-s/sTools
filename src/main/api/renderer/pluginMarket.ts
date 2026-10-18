@@ -1,4 +1,4 @@
-import { httpGet } from '../../utils/httpRequest.js'
+import { ECOSYSTEM_REMOVED_MESSAGE, PLUGIN_MARKET_ENABLED } from '../../../shared/ecosystemPolicy'
 import databaseAPI from '../shared/database'
 import {
   PluginMarketAuthRequiredError,
@@ -160,6 +160,7 @@ type PluginMarketCommentPage = {
 /** fetchPluginMarket 的返回结果 */
 export type PluginMarketResult = {
   success: boolean
+  cached?: boolean
   /** 全量插件列表（原始数据，未按平台过滤） */
   data?: PluginMarketPlugin[]
   /** 构建好的首页视图数据（平台已过滤） */
@@ -206,13 +207,16 @@ export class PluginMarketAPI {
   private latestPluginRequests = new Map<string, Promise<PluginMarketLatestResult>>()
 
   /**
-   * 获取插件市场列表。
+   * 读取 ZTools 公开插件市场，失败时返回明确标记的缓存。
    * 缓存策略：
    * 1. 优先请求线上聚合 API
    * 2. 网络失败时降级使用本地缓存
    * @returns 插件列表和可选的 storefront 视图数据
    */
   public async fetchPluginMarket(): Promise<PluginMarketResult> {
+    // 仅市场能力独立启用，不依赖上游账号。
+    if (!PLUGIN_MARKET_ENABLED)
+      return { success: false, data: [], error: ECOSYSTEM_REMOVED_MESSAGE }
     const getCachedResult = (): PluginMarketResult | null => {
       const cachedData = databaseAPI.dbGet('plugin-market-data')
       if (!Array.isArray(cachedData)) {
@@ -244,7 +248,7 @@ export class PluginMarketAPI {
       console.log('[Plugins] 从 ZTools 插件市场获取列表...', marketApiBase)
 
       const [marketResponse, recommendations, popularRanking, recentRanking] = await Promise.all([
-        httpGet(
+        requestPluginMarket(
           `${marketApiBase}/plugins?limit=${PLUGIN_MARKET_RECOMMEND_LIMIT}&platform=${encodeURIComponent(platform)}&t=${timestamp}`
         ),
         this.fetchPluginMarketRecommendations(PLUGIN_MARKET_RECOMMEND_LIMIT).catch((error) => {
@@ -282,7 +286,7 @@ export class PluginMarketAPI {
         const cachedResult = getCachedResult()
         if (cachedResult) {
           console.log('[Plugins] 获取失败，降级使用本地缓存')
-          return cachedResult
+          return { ...cachedResult, cached: true }
         }
       } catch {
         // ignore
@@ -367,7 +371,7 @@ export class PluginMarketAPI {
     const marketApiBase = getPluginMarketApiBase()
     const timestamp = Date.now()
     const platform = process.platform
-    const response = await httpGet(
+    const response = await requestPluginMarket(
       `${marketApiBase}/plugins/recommendations?limit=${limit}&platform=${encodeURIComponent(platform)}&t=${timestamp}`
     )
     const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data
@@ -391,7 +395,7 @@ export class PluginMarketAPI {
       platform,
       t: String(Date.now())
     })
-    const response = await httpGet(
+    const response = await requestPluginMarket(
       `${getPluginMarketApiBase()}/plugins/rankings?${query.toString()}`
     )
     const data = (

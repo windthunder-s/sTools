@@ -27,16 +27,16 @@ export interface ZToolsDataLayout {
 }
 
 /**
- * 获取 ZTools 数据根目录，测试进程可通过显式配置隔离真实用户数据。
+ * 获取 sTools 的独立数据根目录，测试使用显式目录隔离真实用户数据。
  *
  * @param options 数据目录解析选项。
- * @returns ZTools 数据根目录绝对路径。
+ * @returns sTools 数据根目录绝对路径。
  */
 export function getZToolsRoot(options: AppDataPathOptions = {}): string {
   return (
     options.dataRoot ||
-    process.env.ZTOOLS_DATA_ROOT ||
-    path.join(options.homeDir || os.homedir(), '.ztools')
+    process.env.STOOLS_DATA_ROOT ||
+    path.join(options.homeDir || os.homedir(), '.stools')
   )
 }
 
@@ -152,8 +152,8 @@ export function ensure3Layout(options: AppDataPathOptions = {}): ZToolsDataLayou
 }
 
 function getDefaultLegacyUserDataPath(options: AppDataPathOptions): string {
-  if (process.env.ZTOOLS_LEGACY_USER_DATA_PATH) {
-    return process.env.ZTOOLS_LEGACY_USER_DATA_PATH
+  if (process.env.STOOLS_LEGACY_USER_DATA_PATH) {
+    return process.env.STOOLS_LEGACY_USER_DATA_PATH
   }
   try {
     const userData = app?.getPath?.('userData')
@@ -163,13 +163,13 @@ function getDefaultLegacyUserDataPath(options: AppDataPathOptions): string {
   }
 
   if (process.platform === 'darwin') {
-    return path.join(options.homeDir || os.homedir(), 'Library', 'Application Support', 'ZTools')
+    return path.join(options.homeDir || os.homedir(), 'Library', 'Application Support', 'sTools')
   }
   if (process.platform === 'win32') {
     return path.join(
       process.env.APPDATA || path.join(options.homeDir || os.homedir(), 'AppData', 'Roaming'),
-      'ZTools'
+      'sTools'
     )
   }
-  return path.join(options.homeDir || os.homedir(), '.config', 'ZTools')
+  return path.join(options.homeDir || os.homedir(), '.config', 'sTools')
 }

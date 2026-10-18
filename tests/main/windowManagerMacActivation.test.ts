@@ -273,3 +273,23 @@ describe('windowManager macOS activation', () => {
     expect(windowManager.getPreviousActiveWindow()).toBeNull()
   })
 })
+
+describe('main shortcut replacement', () => {
+  it('keeps the old registered callback when the OS rejects or throws for a new key', async () => {
+    const { globalShortcut } = await import('electron')
+    const { default: manager } = await import('../../src/main/managers/windowManager')
+    vi.mocked(globalShortcut.register).mockReturnValue(true)
+    expect(manager.registerShortcut('Control+Alt+F8')).toBe(true)
+    vi.mocked(globalShortcut.unregister).mockClear()
+    vi.mocked(globalShortcut.register).mockReturnValueOnce(false)
+    expect(manager.registerShortcut('Control+Alt+F9')).toBe(false)
+    expect(manager.getCurrentShortcut()).toBe('Control+Alt+F8')
+    expect(globalShortcut.unregister).not.toHaveBeenCalled()
+    vi.mocked(globalShortcut.register).mockImplementationOnce(() => {
+      throw Error('invalid accelerator')
+    })
+    expect(manager.registerShortcut('invalid key')).toBe(false)
+    expect(manager.getCurrentShortcut()).toBe('Control+Alt+F8')
+    expect(globalShortcut.unregister).not.toHaveBeenCalled()
+  })
+})

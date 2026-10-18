@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { toRef } from 'vue'
+import { router } from '@/router'
 import { DetailPanel } from '@/components'
 import PluginDetailHeader from './PluginDetailHeader.vue'
 import PluginDetailTabs from './PluginDetailTabs.vue'
@@ -114,6 +115,7 @@ function onSwitchTab(tabId: TabId): void {
         :is-running="isRunning"
         :is-development="plugin.isDevelopment"
         :installed="plugin.installed"
+        :is-builtin="plugin.isBuiltin"
         :is-pinned="isPinned"
         :is-disabled="isDisabled"
         :show-pin-button="showPinButton"
@@ -140,6 +142,17 @@ function onSwitchTab(tabId: TabId): void {
       />
     </template>
 
+    <button
+      v-if="plugin.installed"
+      class="shortcut-guide"
+      @click="router.push({ name: 'PluginShortcuts', query: { plugin: plugin.name } })"
+    >
+      <span
+        ><strong>快速设置快捷键</strong><small>按功能查看和设置，无需了解指令或别名</small></span
+      >
+      <span>去设置 →</span>
+    </button>
+
     <PluginDetailHeader
       :plugin="plugin"
       :is-loading="isLoading"
@@ -151,6 +164,7 @@ function onSwitchTab(tabId: TabId): void {
       @upgrade="emit('upgrade')"
     >
       <template #title-badge>
+        <span v-if="plugin.isBuiltin" class="detail-disabled-badge">内置 · 随 sTools 更新</span>
         <span v-if="isDisabled" class="detail-disabled-badge">已禁用</span>
       </template>
       <template #meta-extra>
@@ -229,6 +243,34 @@ function onSwitchTab(tabId: TabId): void {
 </template>
 
 <style scoped>
+.shortcut-guide {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--primary-color, #008d75) 22%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary-color, #008d75) 6%, transparent);
+  color: var(--primary-color, #008d75);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.shortcut-guide strong {
+  display: block;
+  font-weight: 600;
+}
+.shortcut-guide small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 .detail-disabled-badge {
   display: inline-block;
   font-size: 11px;

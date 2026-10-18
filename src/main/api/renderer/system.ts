@@ -96,7 +96,7 @@ export class SystemAPI {
   }
 
   /**
-   * 获取最近复制的内容（供渲染进程被动即时查询）。
+   * 获取最近复制的内容；隔离 E2E 不读取真实桌面剪贴板。
    *
    * @param timeLimit 可选的时间限制（毫秒），不传或传 0 表示无时间限制。
    * @returns 最近复制的内容对象；无有效内容时返回 null。
@@ -107,6 +107,8 @@ export class SystemAPI {
     timestamp: number
   } | null> {
     try {
+      // 测试只使用显式注入的粘贴数据，避免干扰用户桌面或误入匹配模式。
+      if (process.env.ZTOOLS_E2E === '1') return null
       return await clipboardManager.getLastCopiedContent(timeLimit)
     } catch (error) {
       console.error('[System] 获取最后复制内容失败:', error)

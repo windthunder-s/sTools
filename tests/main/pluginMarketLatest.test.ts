@@ -20,6 +20,7 @@ vi.mock('../../src/main/api/shared/database', () => ({
   }
 }))
 
+import databaseAPI from '../../src/main/api/shared/database'
 import { PluginMarketAPI } from '../../src/main/api/renderer/pluginMarket'
 
 describe('PluginMarketAPI.fetchLatestPlugin', () => {
@@ -69,6 +70,25 @@ describe('PluginMarketAPI.fetchLatestPlugin', () => {
     await expect(api.fetchLatestPlugin('local-only', 'win32')).resolves.toEqual({
       available: false,
       reason: 'not_found'
+    })
+  })
+})
+
+describe('market offline fallback', () => {
+  it('labels cached results and does not convert an empty failed request into success', async () => {
+    mockRequestPluginMarket.mockRejectedValue(new Error('offline'))
+    vi.mocked(databaseAPI.dbGet).mockReturnValue(null)
+    expect(await new PluginMarketAPI().fetchPluginMarket()).toMatchObject({
+      success: false,
+      error: 'offline'
+    })
+    vi.mocked(databaseAPI.dbGet).mockImplementation((key: string) =>
+      key === 'plugin-market-data' ? [{ name: 'demo', version: '1.0.0' }] : null
+    )
+    expect(await new PluginMarketAPI().fetchPluginMarket()).toMatchObject({
+      success: true,
+      cached: true,
+      data: [{ name: 'demo' }]
     })
   })
 })

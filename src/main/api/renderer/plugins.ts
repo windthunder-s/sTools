@@ -1,5 +1,7 @@
+import { PLUGIN_MARKET_ENABLED } from '../../../shared/ecosystemPolicy'
+import { registerProductHandler } from '../../core/productIpc'
 import type { PluginManager } from '../../managers/pluginManager'
-import { ipcMain, type WebContents } from 'electron'
+import { type WebContents } from 'electron'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import { removePluginArtifact } from '../../utils/pluginStorage.js'
@@ -125,104 +127,116 @@ export class PluginsAPI {
    * @returns 无返回值
    */
   private setupIPC(): void {
-    ipcMain.handle('get-plugins', () => this.getPlugins())
-    ipcMain.handle('get-all-plugins', () => this.getAllPlugins())
-    ipcMain.handle('get-disabled-plugins', () => this.getDisabledPlugins())
-    ipcMain.handle('set-plugin-disabled', (_event, pluginPath: string, disabled: boolean) =>
+    registerProductHandler('get-plugins', () => this.getPlugins())
+    registerProductHandler('get-all-plugins', () => this.getAllPlugins())
+    registerProductHandler('get-disabled-plugins', () => this.getDisabledPlugins())
+    registerProductHandler('set-plugin-disabled', (_event, pluginPath: string, disabled: boolean) =>
       this.setPluginDisabled(pluginPath, disabled)
     )
-    ipcMain.handle('set-plugin-main-push-enabled', (_event, pluginName: string, enabled: boolean) =>
-      this.setPluginMainPushEnabled(pluginName, enabled)
+    registerProductHandler(
+      'set-plugin-main-push-enabled',
+      (_event, pluginName: string, enabled: boolean) =>
+        this.setPluginMainPushEnabled(pluginName, enabled)
     )
-    ipcMain.handle('import-plugin', () => this.installer.importPlugin())
-    ipcMain.handle('import-dev-plugin', (_event, pluginJsonPath?: string) =>
+    registerProductHandler('import-plugin', () => this.installer.importPlugin())
+    registerProductHandler('import-dev-plugin', (_event, pluginJsonPath?: string) =>
       this.devProjects.importDevPlugin(pluginJsonPath)
     )
-    ipcMain.handle('upsert-dev-project-by-config-path', (_event, pluginJsonPath: string) =>
+    registerProductHandler('upsert-dev-project-by-config-path', (_event, pluginJsonPath: string) =>
       this.devProjects.upsertDevProjectByConfigPath(pluginJsonPath)
     )
-    ipcMain.handle('get-dev-projects', () => this.devProjects.getDevProjects())
-    ipcMain.handle('update-dev-projects-order', (_event, pluginNames: string[]) =>
+    registerProductHandler('get-dev-projects', () => this.devProjects.getDevProjects())
+    registerProductHandler('update-dev-projects-order', (_event, pluginNames: string[]) =>
       this.devProjects.updateDevProjectsOrder(pluginNames)
     )
-    ipcMain.handle('remove-dev-project', (_event, pluginName: string) =>
+    registerProductHandler('remove-dev-project', (_event, pluginName: string) =>
       this.devProjects.removeDevProject(pluginName)
     )
-    ipcMain.handle('install-dev-plugin', (_event, pluginName: string) =>
+    registerProductHandler('install-dev-plugin', (_event, pluginName: string) =>
       this.devProjects.installDevPlugin(pluginName)
     )
-    ipcMain.handle('uninstall-dev-plugin', (_event, pluginName: string) =>
+    registerProductHandler('uninstall-dev-plugin', (_event, pluginName: string) =>
       this.devProjects.uninstallDevPlugin(pluginName)
     )
-    ipcMain.handle('validate-dev-project', (_event, pluginName: string) =>
+    registerProductHandler('validate-dev-project', (_event, pluginName: string) =>
       this.devProjects.validateDevProject(pluginName)
     )
-    ipcMain.handle('select-dev-project-config', (_event, pluginName: string) =>
+    registerProductHandler('select-dev-project-config', (_event, pluginName: string) =>
       this.devProjects.selectDevProjectConfig(pluginName)
     )
-    ipcMain.handle(
+    registerProductHandler(
       'package-dev-project',
       (_event, pluginName: string, packagePath?: string, version?: string) =>
         this.devProjects.packageDevProject(pluginName, packagePath, version)
     )
-    ipcMain.handle('delete-plugin', (_event, pluginPath: string, options?: DeletePluginOptions) =>
-      this.deletePlugin(pluginPath, options)
+    registerProductHandler(
+      'delete-plugin',
+      (_event, pluginPath: string, options?: DeletePluginOptions) =>
+        this.deletePlugin(pluginPath, options)
     )
-    ipcMain.handle('get-running-plugins', () => this.getRunningPlugins())
-    ipcMain.handle('kill-plugin', (_event, pluginPath: string) => this.killPlugin(pluginPath))
-    ipcMain.handle('kill-plugin-and-return', (_event, pluginPath: string) =>
+    registerProductHandler('get-running-plugins', () => this.getRunningPlugins())
+    registerProductHandler('kill-plugin', (_event, pluginPath: string) =>
+      this.killPlugin(pluginPath)
+    )
+    registerProductHandler('kill-plugin-and-return', (_event, pluginPath: string) =>
       this.killPluginAndReturn(pluginPath)
     )
     // 插件运行界面只调用高层更新能力，版本查询和安装细节留在主进程。
-    ipcMain.handle('check-plugin-update', (_event, pluginName: string, pluginPath: string) =>
-      this.checkPluginUpdate(pluginName, pluginPath)
+    registerProductHandler(
+      'check-plugin-update',
+      (_event, pluginName: string, pluginPath: string) =>
+        this.checkPluginUpdate(pluginName, pluginPath)
     )
-    ipcMain.handle('upgrade-plugin-from-market', (event, pluginName: string, pluginPath: string) =>
-      this.upgradeCurrentPluginFromMarket(pluginName, pluginPath, event.sender)
+    registerProductHandler(
+      'upgrade-plugin-from-market',
+      (event, pluginName: string, pluginPath: string) =>
+        this.upgradeCurrentPluginFromMarket(pluginName, pluginPath, event.sender)
     )
-    ipcMain.handle('open-plugin-market-detail', (_event, pluginName: string) =>
+    registerProductHandler('open-plugin-market-detail', (_event, pluginName: string) =>
       windowManager.showPluginMarketDetail(pluginName)
     )
-    ipcMain.handle('fetch-plugin-market', () => this.market.fetchPluginMarket())
-    ipcMain.handle('fetch-plugin-market-recommendations', (_event, limit?: number) =>
+    registerProductHandler('fetch-plugin-market', () => this.market.fetchPluginMarket())
+    registerProductHandler('fetch-plugin-market-recommendations', (_event, limit?: number) =>
       this.market.fetchPluginMarketRecommendations(limit)
     )
-    ipcMain.handle(
+    registerProductHandler(
       'fetch-plugin-market-comments',
       (_event, pluginName: string, page?: number, pageSize?: number, anchorId?: number) =>
         this.market.fetchComments(pluginName, page, pageSize, anchorId)
     )
-    ipcMain.handle(
+    registerProductHandler(
       'create-plugin-market-comment',
       (_event, input: { pluginName: string; content: string; parentId?: number | null }) =>
         this.market.createComment(input)
     )
-    ipcMain.handle('toggle-plugin-market-comment-like', (_event, commentId: number) =>
+    registerProductHandler('toggle-plugin-market-comment-like', (_event, commentId: number) =>
       this.market.toggleCommentLike(commentId)
     )
-    ipcMain.handle('delete-plugin-market-comment', (_event, commentId: number) =>
+    registerProductHandler('delete-plugin-market-comment', (_event, commentId: number) =>
       this.market.deleteComment(commentId)
     )
-    ipcMain.handle('install-plugin-from-market', (event, plugin: any) =>
+    registerProductHandler('install-plugin-from-market', (event, plugin: any) =>
       this.installer.installPluginFromMarket(plugin, event.sender)
     )
-    ipcMain.handle('cancel-plugin-market-download', (_event, pluginNameOrTaskId: string) =>
+    registerProductHandler('cancel-plugin-market-download', (_event, pluginNameOrTaskId: string) =>
       this.installer.cancelPluginMarketDownload(pluginNameOrTaskId)
     )
-    ipcMain.handle('get-plugin-readme', (_event, pluginPathOrName: string, pluginName?: string) =>
-      this.getPluginReadme(pluginPathOrName, pluginName)
+    registerProductHandler(
+      'get-plugin-readme',
+      (_event, pluginPathOrName: string, pluginName?: string) =>
+        this.getPluginReadme(pluginPathOrName, pluginName)
     )
-    ipcMain.handle('get-plugin-db-data', (_event, pluginName: string) =>
+    registerProductHandler('get-plugin-db-data', (_event, pluginName: string) =>
       this.getPluginDbData(pluginName)
     )
-    ipcMain.handle('read-plugin-info-from-zpx', (_event, zpxPath: string) =>
+    registerProductHandler('read-plugin-info-from-zpx', (_event, zpxPath: string) =>
       this.installer.readPluginInfoFromZpx(zpxPath)
     )
-    ipcMain.handle('install-plugin-from-path', (_event, zpxPath: string) =>
+    registerProductHandler('install-plugin-from-path', (_event, zpxPath: string) =>
       this.installer.installPluginFromPath(zpxPath)
     )
     // mainPush 功能：查询插件的动态搜索结果
-    ipcMain.handle(
+    registerProductHandler(
       'query-main-push',
       async (_event, pluginPath: string, featureCode: string, queryData: any) => {
         try {
@@ -238,7 +252,7 @@ export class PluginsAPI {
     )
 
     // mainPush 功能：通知插件用户选择了搜索结果
-    ipcMain.handle(
+    registerProductHandler(
       'select-main-push',
       async (_event, pluginPath: string, featureCode: string, selectData: any) => {
         try {
@@ -253,7 +267,7 @@ export class PluginsAPI {
       }
     )
 
-    ipcMain.handle(
+    registerProductHandler(
       'call-headless-plugin',
       async (_event, pluginPath: string, featureCode: string, action: any) => {
         try {
@@ -273,7 +287,7 @@ export class PluginsAPI {
       }
     )
 
-    ipcMain.handle('get-plugin-memory-info', async (_event, pluginPath: string) => {
+    registerProductHandler('get-plugin-memory-info', async (_event, pluginPath: string) => {
       try {
         const memoryInfo = await this.pluginManager?.getPluginMemoryInfo(pluginPath)
         return { success: true, data: memoryInfo }
@@ -283,13 +297,13 @@ export class PluginsAPI {
       }
     })
 
-    ipcMain.handle(
+    registerProductHandler(
       'install-plugin-from-npm',
       (_event, options: { packageName: string; useChinaMirror?: boolean }) =>
         this.installer.installPluginFromNpm(options.packageName, options.useChinaMirror)
     )
 
-    ipcMain.handle('export-all-plugins', () => this.installer.exportAllPlugins())
+    registerProductHandler('export-all-plugins', () => this.installer.exportAllPlugins())
   }
 
   /**
@@ -312,6 +326,8 @@ export class PluginsAPI {
     pluginName: string,
     pluginPath: string
   ): Promise<PluginUpdateCheckResult> {
+    if (!PLUGIN_MARKET_ENABLED)
+      return { success: true, updateAvailable: false, reason: 'market_removed' }
     try {
       const normalizedName = pluginName.trim()
       const installedPlugin = this.readInstalledPlugins().find(

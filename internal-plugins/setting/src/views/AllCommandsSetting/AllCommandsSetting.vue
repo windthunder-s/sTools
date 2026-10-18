@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BUNDLED_INTERNAL_PLUGIN_NAMES } from '@shared/bundledPlugins'
 import { computed, onMounted, ref } from 'vue'
 import settingsFillIcon from '@/assets/image/settings-fill.png'
 import { weightedSearch } from '@/utils'
@@ -277,7 +278,7 @@ async function handleAppMenuSelect(key: string, cmd: Command): Promise<void> {
 }
 
 // 内置插件名称列表（与主进程保持一致）
-const INTERNAL_PLUGIN_NAMES = ['setting', 'system']
+const INTERNAL_PLUGIN_NAMES: readonly string[] = BUNDLED_INTERNAL_PLUGIN_NAMES
 
 // 判断是否为内置插件
 function isInternalPlugin(pluginName: string): boolean {

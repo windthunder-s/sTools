@@ -94,13 +94,17 @@ class DetachedWindowManager {
 
       // 使用视图真实高度，避免覆盖插件主动设置或用户保存的正文尺寸。
       const windowBounds = info.window.getContentBounds()
+      const outerBounds = info.window.getBounds()
       const viewBounds = info.view.getBounds()
       info.window.webContents.send('update-compact-main-window-header', compactWindowHeader)
       if (process.platform === 'darwin') {
         info.window.setWindowButtonPosition(this.resolveTrafficLightPosition(titlebarHeight))
       }
       info.window.setMinimumSize(WINDOW_WIDTH, titlebarHeight)
-      info.window.setContentSize(windowBounds.width, viewBounds.height + titlebarHeight)
+      // 只调整外框高度，避免 Windows 非客户区与 DIP 换算使宽度在切换时逐次增长。
+      info.window.setBounds({
+        height: outerBounds.height + viewBounds.height + titlebarHeight - windowBounds.height
+      })
       info.view.setBounds({
         x: 0,
         y: titlebarHeight,

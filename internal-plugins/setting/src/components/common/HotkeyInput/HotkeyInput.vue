@@ -1,5 +1,14 @@
 <template>
-  <div class="hotkey-input" :class="{ recording: isRecording }" @click="startRecording">
+  <div
+    class="hotkey-input"
+    role="button"
+    tabindex="0"
+    :aria-label="placeholder"
+    :class="{ recording: isRecording }"
+    @click="startRecording"
+    @keydown.enter.prevent="!isRecording && startRecording()"
+    @keydown.space.prevent="!isRecording && startRecording()"
+  >
     {{ displayHotkey }}
   </div>
 </template>
@@ -138,7 +147,12 @@ const displayHotkey = computed(() => {
   return props.modelValue || props.placeholder
 })
 
+/**
+ * 开始录制组合键，避免重复注册监听。
+ * @returns 后端准备并安装键盘监听后结束的 Promise。
+ */
 async function startRecording(): Promise<void> {
+  if (isRecording.value) return
   isRecording.value = true
   recordedKeys.value = []
   mainKeyPressed.value = false
@@ -156,6 +170,8 @@ async function startRecording(): Promise<void> {
     console.error('启动后端快捷键监听异常，使用前端监听:', error)
   }
 
+  // 等待后端期间弹窗可能已经关闭或取消录制。
+  if (!isRecording.value) return
   document.addEventListener('keydown', handleKeyDown)
   document.addEventListener('keyup', handleKeyUp)
 }
@@ -182,7 +198,7 @@ function handleEscapeWhileRecording(_event: KeyboardEvent): boolean {
 // 录制状态优先于编辑面板，ESC 先取消录制再允许后续返回。
 useEscapeHandler(handleEscapeWhileRecording, {
   enabled: () => isRecording.value,
-  priority: 200
+  priority: 400
 })
 
 function clearDoubleTapTimer(): void {

@@ -345,7 +345,8 @@ declare global {
           shortcut: string,
           target: string,
           autoCopy?: boolean,
-          preScreenshotOptimization?: boolean
+          preScreenshotOptimization?: boolean,
+          replaceTarget?: string
         ) => Promise<{ success: boolean; error?: string }>
         unregisterGlobalShortcut: (shortcut: string) => Promise<{
           success: boolean
@@ -357,7 +358,8 @@ declare global {
         ) => Promise<{ success: boolean; error?: string }>
         registerAppShortcut: (
           shortcut: string,
-          target: string
+          target: string,
+          replaceTarget?: string
         ) => Promise<{ success: boolean; error?: string }>
         unregisterAppShortcut: (shortcut: string) => Promise<{
           success: boolean

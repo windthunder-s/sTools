@@ -19,3 +19,13 @@ test-results
 .pnpm-store/*
 _*
 /.sanshu-memory
+
+# sTools local migration and release artifacts
+legacy/
+artifacts/
+release/
+
+# Built from src/native/search by build:search-native
+resources/search/stools-ntfs.exe
+
+resources/search/stools-everything.exe

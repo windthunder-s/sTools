@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import path from 'node:path'
 import {
   reorderProjects,
   buildInstalledDevelopmentPlugin,
@@ -22,7 +23,7 @@ describe('pluginDevelopmentRegistry', () => {
 
     expect(installed.isDevelopment).toBe(true)
     expect(installed.main).toBe('http://localhost:8686/')
-    expect(installed.path).toBe('/workspace/demo')
+    expect(installed.path).toBe(path.resolve('/workspace/demo'))
   })
 
   it('rejects upsert when config name collides with different path', () => {
@@ -53,18 +54,21 @@ describe('pluginDevelopmentRegistry', () => {
     expect(result.reason).toContain('/workspace/demo')
   })
 
-  it('rejects upsert for built-in plugin names', () => {
-    const registry = { version: 3, projects: {} }
+  it.each(['setting', 'system', 'local-tools', 'capture-tools'])(
+    'rejects upsert for built-in plugin %s',
+    (name) => {
+      const registry = { version: 3, projects: {} }
 
-    const result = upsertByConfig({
-      registry,
-      pluginPath: '/workspace/setting',
-      pluginConfig: { name: 'setting', title: 'Setting', version: '1.0.0' }
-    })
+      const result = upsertByConfig({
+        registry,
+        pluginPath: '/workspace/' + name,
+        pluginConfig: { name, title: 'Builtin', version: '1.0.0' }
+      })
 
-    expect(result.success).toBe(false)
-    expect(result.reason).toMatch(/not allowed/)
-  })
+      expect(result.success).toBe(false)
+      expect(result.reason).toMatch(/not allowed/)
+    }
+  )
 
   it('updates paths when registry entry already exists at the same path', () => {
     const registry = {
@@ -93,8 +97,8 @@ describe('pluginDevelopmentRegistry', () => {
 
     expect(result.success).toBe(true)
     const entry = result.registry.projects.demo
-    expect(entry.projectPath).toBe('/workspace/demo')
-    expect(entry.configPath).toBe('/workspace/demo/plugin.json')
+    expect(entry.projectPath).toBe(path.resolve('/workspace/demo'))
+    expect(entry.configPath).toBe(path.resolve('/workspace/demo/plugin.json'))
     expect(entry.status).toBe('ready')
     expect(entry.lastValidatedAt).toBe('2026-03-29T05:00:00.000Z')
     expect(entry.configSnapshot.version).toBe('1.0.0')
@@ -349,8 +353,10 @@ describe('pluginDevelopmentRegistry', () => {
     })
 
     expect(result.success).toBe(true)
-    expect(result.registry.projects.demo.projectPath).toBe('/workspace/new-demo')
-    expect(result.registry.projects.demo.configPath).toBe('/workspace/new-demo/plugin.json')
+    expect(result.registry.projects.demo.projectPath).toBe(path.resolve('/workspace/new-demo'))
+    expect(result.registry.projects.demo.configPath).toBe(
+      path.resolve('/workspace/new-demo/plugin.json')
+    )
     expect(result.registry.projects.demo.sortOrder).toBe(3)
     expect(result.registry.projects.demo.configSnapshot.version).toBe('2.0.0')
   })

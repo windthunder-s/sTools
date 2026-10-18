@@ -10,6 +10,22 @@
     >
       <div class="item-icon">
         <img v-if="app.icon" :src="app.icon" alt="" draggable="false" />
+        <svg
+          v-else-if="app.searchSource === 'everything'"
+          class="file-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+        >
+          <path v-if="app.category === 'folder'" d="M3 7V5h6l2 2h10v13H3Z" />
+          <g v-else-if="app.category === 'app'">
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M3 9h18M6 6.5h2m2 0h2" />
+          </g>
+          <g v-else><path d="M5 3h9l5 5v13H5Z M14 3v6h5M8 13h8m-8 4h8" /></g>
+        </svg>
         <span
           v-if="app.pluginName && isDevelopmentPluginName(app.pluginName)"
           class="item-dev-badge"
@@ -23,7 +39,10 @@
           {{ getSubtitle(app) }}
         </div>
       </div>
-      <div v-if="app.type === 'plugin'" class="item-badge">
+      <div v-if="app.searchSource === 'everything'" class="item-badge">
+        {{ SEARCH_CATEGORIES.find((category) => category.key === app.category)?.label }}
+      </div>
+      <div v-else-if="app.type === 'plugin'" class="item-badge">
         {{ app.pluginName || 'Ctool' }}
       </div>
     </div>
@@ -33,6 +52,7 @@
 <script setup lang="ts">
 import type { Command } from '../../stores/commandDataStore'
 import { highlightMatch } from '../../utils/highlight'
+import { SEARCH_CATEGORIES } from '@shared/unifiedSearch'
 import { isDevelopmentPluginName } from '../../../../shared/pluginRuntimeNamespace'
 
 interface Props {
@@ -60,7 +80,7 @@ function getSubtitle(app: Command): string {
     return app.pluginExplain
   }
 
-  if (app.type === 'direct' && app.subType !== 'system-setting' && app.path) {
+  if ((app.type === 'direct' || app.type === 'local-file') && app.subType !== 'system-setting' && app.path) {
     return app.path
   }
 
@@ -167,5 +187,10 @@ function getSubtitle(app: Command): string {
   background-color: transparent;
   color: var(--highlight-color);
   font-weight: 600;
+}
+.file-icon {
+  width: 29px;
+  height: 29px;
+  color: var(--highlight-color);
 }
 </style>

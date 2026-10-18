@@ -2,7 +2,7 @@
   "$schema": "node_modules/@ztools-center/ztools-api-types/resource/ztools.schema.json",
   "name": "system",
   "title": "系统",
-  "description": "ZTools 系统内置插件",
+  "description": "sTools 内置系统功能：截图、窗口操作和系统指令",
   "author": "Zing",
   "version": "1.0.0",
   "logo": "clear.png",
@@ -11,43 +11,67 @@
       "code": "clear",
       "explain": "停止所有插件",
       "icon": "clear.png",
-      "cmds": ["Clear", "停止所有插件"]
+      "cmds": [
+        "Clear",
+        "停止所有插件"
+      ]
     },
     {
       "code": "clear-history",
       "explain": "清除使用记录",
       "icon": "clear.png",
-      "cmds": ["清除使用记录", "Clear History"]
+      "cmds": [
+        "清除使用记录",
+        "Clear History"
+      ]
     },
     {
       "code": "reboot",
       "explain": "重启",
       "icon": "reboot.png",
-      "cmds": ["Reboot", "重启"]
+      "cmds": [
+        "Reboot",
+        "重启"
+      ]
     },
     {
       "code": "shutdown",
       "explain": "关机",
       "icon": "shutdown.png",
-      "cmds": ["Shutdown", "关机"]
+      "cmds": [
+        "Shutdown",
+        "关机"
+      ]
     },
     {
       "code": "logoff",
       "explain": "注销",
       "icon": "logoff.png",
-      "cmds": ["Log Off", "Sign Out", "注销", "退出登录"]
+      "cmds": [
+        "Log Off",
+        "Sign Out",
+        "注销",
+        "退出登录"
+      ]
     },
     {
       "code": "sleep",
       "explain": "睡眠",
       "icon": "sleep.png",
-      "cmds": ["Sleep", "睡眠"]
+      "cmds": [
+        "Sleep",
+        "睡眠"
+      ]
     },
     {
       "code": "lock-screen",
       "explain": "锁屏",
       "icon": "lock.png",
-      "cmds": ["Lock Screen", "锁屏", "锁定屏幕"]
+      "cmds": [
+        "Lock Screen",
+        "锁屏",
+        "锁定屏幕"
+      ]
     },
     {
       "code": "open-url",
@@ -79,7 +103,10 @@
       "code": "window-info",
       "explain": "窗口信息",
       "icon": "window-info.png",
-      "cmds": ["窗口信息", "Window Info"]
+      "cmds": [
+        "窗口信息",
+        "Window Info"
+      ]
     },
     {
       "code": "copy-path",
@@ -90,8 +117,14 @@
           "type": "window",
           "label": "复制路径",
           "match": {
-            "app": ["Finder.app", "explorer.exe"],
-            "className": ["", "CabinetWClass"]
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
           }
         },
         {
@@ -111,8 +144,14 @@
           "type": "window",
           "label": "在终端打开",
           "match": {
-            "app": ["Finder.app", "explorer.exe"],
-            "className": ["", "CabinetWClass"]
+            "app": [
+              "Finder.app",
+              "explorer.exe"
+            ],
+            "className": [
+              "",
+              "CabinetWClass"
+            ]
           }
         },
         {
@@ -128,19 +167,31 @@
       "code": "add-to-wakeup-blacklist",
       "explain": "将当前活动窗口的应用添加到唤醒黑名单",
       "icon": "wakeup-blacklist.png",
-      "cmds": ["添加到唤醒黑名单", "Wakeup Blacklist"]
+      "cmds": [
+        "添加到唤醒黑名单",
+        "Wakeup Blacklist"
+      ]
     },
     {
       "code": "color-picker",
       "explain": "屏幕取色",
       "icon": "color-picker.png",
-      "cmds": ["取色", "Color Picker", "屏幕取色"]
+      "cmds": [
+        "取色",
+        "Color Picker",
+        "屏幕取色"
+      ]
     },
     {
       "code": "screenshot",
       "explain": "截图并复制到剪贴板",
       "icon": "screenshot.png",
-      "cmds": ["截图", "截屏", "Screenshot", "Screen Capture"]
+      "cmds": [
+        "截图",
+        "截屏",
+        "Screenshot",
+        "Screen Capture"
+      ]
     }
   ]
 }

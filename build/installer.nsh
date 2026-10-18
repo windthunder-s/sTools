@@ -1,6 +1,4 @@
 !macro customInstall
-  Delete "$INSTDIR\ztools-agent.exe"
-  Delete "$INSTDIR\ztools-updater.exe"
   FileOpen $0 "$INSTDIR\resources\.ztools-nsis-installed" w
   FileWrite $0 "electron-updater-nsis"
   FileClose $0
@@ -12,8 +10,5 @@
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_ID}"
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "${APP_ID}"
 
-    # 清理由旧版 AppUserModelID 写入的开机启动项。
-    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "link.eiot.ztools"
-    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "link.eiot.ztools"
   ${endIf}
 !macroend

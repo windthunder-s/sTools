@@ -7,15 +7,6 @@ import { resolve } from 'path'
 const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8'))
 const targetElectronVersion = packageJson.devDependencies.electron
 
-function getPlatformUpdaterEntry(): string {
-  const targetPlatform = process.env.ZTOOLS_TARGET_PLATFORM || process.platform
-  if (targetPlatform === 'win32')
-    return resolve(__dirname, 'src/main/api/platformUpdater/windows.ts')
-  if (targetPlatform === 'darwin')
-    return resolve(__dirname, 'src/main/api/platformUpdater/macos.ts')
-  return resolve(__dirname, 'src/main/api/platformUpdater/disabled.ts')
-}
-
 export default defineConfig({
   main: {
     define: {
@@ -24,7 +15,8 @@ export default defineConfig({
     resolve: {
       alias: {
         '@shared': resolve(__dirname, 'src/shared'),
-        '@platform-updater': getPlatformUpdaterEntry()
+        // sTools 采用独立发布，禁止使用上游更新器覆盖当前应用。
+        '@platform-updater': resolve(__dirname, 'src/main/api/platformUpdater/disabled.ts')
       }
     },
     plugins: [externalizeDepsPlugin()],

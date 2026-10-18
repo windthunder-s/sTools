@@ -8,30 +8,30 @@ vi.mock('electron', () => ({
 }))
 
 describe('getPluginDataPath', () => {
-  const existingDataRoot = process.env.ZTOOLS_DATA_ROOT
+  const existingDataRoot = process.env.STOOLS_DATA_ROOT
 
   afterEach(() => {
     if (existingDataRoot === undefined) {
-      delete process.env.ZTOOLS_DATA_ROOT
+      delete process.env.STOOLS_DATA_ROOT
     } else {
-      process.env.ZTOOLS_DATA_ROOT = existingDataRoot
+      process.env.STOOLS_DATA_ROOT = existingDataRoot
     }
   })
 
   it('返回数据根目录下的插件数据根容器', () => {
-    expect(getPluginDataRoot()).toBe(path.join(os.homedir(), '.ztools', 'plugins-data'))
+    expect(getPluginDataRoot()).toBe(path.join(os.homedir(), '.stools', 'plugins-data'))
   })
 
   it('返回插件名对应的专属数据目录', () => {
     expect(getPluginDataPath('demo')).toBe(
-      path.join(os.homedir(), '.ztools', 'plugins-data', 'demo')
+      path.join(os.homedir(), '.stools', 'plugins-data', 'demo')
     )
   })
 
-  it('支持通过 ZTOOLS_DATA_ROOT 隔离数据根目录', () => {
-    process.env.ZTOOLS_DATA_ROOT = path.join(os.tmpdir(), 'ztools-data-root')
+  it('支持通过 STOOLS_DATA_ROOT 隔离数据根目录', () => {
+    process.env.STOOLS_DATA_ROOT = path.join(os.tmpdir(), 'ztools-data-root')
     expect(getPluginDataPath('demo')).toBe(
-      path.join(process.env.ZTOOLS_DATA_ROOT, 'plugins-data', 'demo')
+      path.join(process.env.STOOLS_DATA_ROOT, 'plugins-data', 'demo')
     )
   })
 

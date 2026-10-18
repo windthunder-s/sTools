@@ -20,9 +20,9 @@ async function launchTestApp(dataRoot: string, legacyRoot: string): Promise<Elec
       ...Object.fromEntries(
         Object.entries(process.env).filter((entry): entry is [string, string] => Boolean(entry[1]))
       ),
-      ZTOOLS_DATA_ROOT: dataRoot,
+      STOOLS_DATA_ROOT: dataRoot,
       ZTOOLS_E2E: '1',
-      ZTOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
+      STOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
       ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
     }
   })
@@ -75,7 +75,7 @@ async function readMainWindowState(
 ): Promise<{ visible: boolean; pluginViewCount: number }> {
   return await electronApp.evaluate(({ BrowserWindow }) => {
     const mainWindow = BrowserWindow.getAllWindows().find(
-      (window) => window.getTitle() === 'ZTools'
+      (window) => window.getTitle() === 'sTools'
     )
     if (!mainWindow) throw new Error('未找到 ZTools 主窗口')
     return {
@@ -93,7 +93,7 @@ async function readMainWindowState(
 async function showMainWindow(electronApp: ElectronApplication): Promise<void> {
   await electronApp.evaluate(({ BrowserWindow }) => {
     const mainWindow = BrowserWindow.getAllWindows().find(
-      (window) => window.getTitle() === 'ZTools'
+      (window) => window.getTitle() === 'sTools'
     )
     if (!mainWindow) throw new Error('未找到 ZTools 主窗口')
     mainWindow.show()

@@ -1,11 +1,7 @@
 import { app } from 'electron'
 import path from 'path'
-
-/**
- * 随包内置插件名称列表
- * 这些插件存在于 internal-plugins 目录，并由宿主在启动时自动装载。
- */
-export const BUNDLED_INTERNAL_PLUGIN_NAMES = ['setting', 'system'] as const
+import { BUNDLED_INTERNAL_PLUGIN_NAMES } from '../../shared/bundledPlugins'
+export { BUNDLED_INTERNAL_PLUGIN_NAMES } from '../../shared/bundledPlugins'
 
 /**
  * 内部 API 特权插件名称列表

@@ -1,3 +1,4 @@
+import { ECOSYSTEM_REMOVED_MESSAGE, isRemovedEcosystemUrl } from '../../shared/ecosystemPolicy'
 import { net, session } from 'electron'
 import { IncomingMessage } from 'electron'
 
@@ -5,6 +6,7 @@ export interface HttpRequestOptions {
   method?: 'GET' | 'POST' | 'HEAD' | 'PUT' | 'DELETE'
   headers?: Record<string, string>
   body?: string | URLSearchParams
+  timeoutMs?: number
   maxRedirects?: number
   validateStatus?: (status: number) => boolean
 }
@@ -22,12 +24,19 @@ export interface HttpResponse {
 }
 
 /**
- * 使用 Electron net.request 发送 HTTP 请求
+ * 使用 Electron net.request 发送允许的 HTTP 请求。
+ * @param url 请求地址。
+ * @param options 请求参数。
+ * @returns 响应 Promise；移除的生态地址会拒绝请求。
  * 注意: 代理配置已在全局 session 上设置，所有请求自动使用代理
  * 默认禁用缓存，确保每次都获取最新数据
  */
 export function httpRequest(url: string, options: HttpRequestOptions = {}): Promise<HttpResponse> {
-  return new Promise((resolve, reject) => {
+  // 宿主统一请求层拒绝旧服务，防止隐藏页面或遗留调用重新联网。
+  if (isRemovedEcosystemUrl(url, options.method || 'GET'))
+    return Promise.reject(new Error(ECOSYSTEM_REMOVED_MESSAGE))
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return new Promise<HttpResponse>((resolve, reject) => {
     const {
       method = 'GET',
       headers = {},
@@ -52,6 +61,13 @@ export function httpRequest(url: string, options: HttpRequestOptions = {}): Prom
         redirect: 'follow', // 自动跟随重定向（manual 模式在某些 Electron 版本会导致 Redirect was cancelled 错误）
         session: session.defaultSession // 显式指定使用 defaultSession（确保代理配置生效）
       })
+
+      // 市场请求设置截止时间，离线时及时返回缓存或重试入口。
+      if (options.timeoutMs)
+        timer = setTimeout(() => {
+          reject(new Error('请求超时，请检查网络后重试'))
+          request.abort()
+        }, options.timeoutMs)
 
       // 设置请求头（包含默认的禁用缓存头）
       Object.entries(defaultHeaders).forEach(([key, value]) => {
@@ -139,6 +155,8 @@ export function httpRequest(url: string, options: HttpRequestOptions = {}): Prom
     }
 
     makeRequest(url)
+  }).finally(() => {
+    if (timer) clearTimeout(timer)
   })
 }
 

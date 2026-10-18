@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { changeLauncherShortcut } from '../PluginShortcutsSetting/launcher'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -150,13 +151,14 @@ const terminalOptions = computed(() => {
 
 // 默认快捷键（根据平台区分文案）
 const defaultHotkey = computed(() => {
-  return platform.value === 'win32' ? 'Alt+Z' : 'Option+Z'
+  return 'Control+Alt+Space'
 })
 
 // 快捷键预设选项（根据平台）
 const hotkeyPresets = computed(() => {
   if (platform.value === 'win32') {
     return [
+      { label: 'Ctrl + Alt + Space', value: 'Control+Alt+Space' },
       { label: 'Alt + Space', value: 'Alt+Space' },
       { label: 'Ctrl + Space', value: 'Ctrl+Space' }
     ]
@@ -275,7 +277,7 @@ const showTrayIcon = ref(true)
 
 // 悬浮球设置
 const floatingBallEnabled = ref(false)
-const floatingBallLetter = ref('Z')
+const floatingBallLetter = ref('S')
 
 // 开机启动设置
 const launchAtLogin = ref(false)
@@ -334,63 +336,35 @@ const defaultAvatar = DEFAULT_AVATAR
 // 搜索框提示文字默认值
 const defaultPlaceholder = DEFAULT_PLACEHOLDER
 
-// 处理快捷键变化
+/**
+ * 从后端读取真实旧键并统一保存，防止 v-model 提前更新导致无法回滚。
+ * @param newHotkey 新组合键。
+ * @returns 保存完成后的 Promise。
+ */
 async function handleHotkeyChange(newHotkey: string): Promise<void> {
-  const previousHotkey = hotkey.value
+  const api = window.ztools.internal
   try {
-    // 调用 IPC 更新全局快捷键
-    const result = await window.ztools.internal.updateShortcut(newHotkey)
-    if (result.success) {
-      // 保存到数据库
-      await saveSettings()
-      console.log('新快捷键设置成功:', hotkey.value)
-    } else {
-      // 设置失败（被占用等），还原为之前的快捷键
-      hotkey.value = previousHotkey
-      error(`快捷键设置失败: ${result.error || '未知错误'}`)
-    }
-  } catch (err: any) {
-    hotkey.value = previousHotkey
-    console.error('设置快捷键失败:', err)
-    error(`设置快捷键失败: ${err.message || '未知错误'}`)
+    const previous = await api.getCurrentShortcut()
+    hotkey.value = await changeLauncherShortcut(api, previous, newHotkey, platform.value)
+  } catch (err) {
+    hotkey.value = await api.getCurrentShortcut()
+    error(err instanceof Error ? err.message : '快捷键保存失败')
   }
 }
-
-// 应用快捷键预设
+/**
+ * 应用预设并执行同样的冲突检查。
+ * @param preset 预设组合键。
+ * @returns 保存完成后的 Promise。
+ */
 async function applyHotkeyPreset(preset: string): Promise<void> {
-  const previousHotkey = hotkey.value
-  try {
-    const result = await window.ztools.internal.updateShortcut(preset)
-    if (result.success) {
-      hotkey.value = preset
-      await saveSettings()
-      console.log('快捷键预设已应用:', preset)
-    } else {
-      hotkey.value = previousHotkey
-      error(`快捷键设置失败: ${result.error || '未知错误'}`)
-    }
-  } catch (err: any) {
-    hotkey.value = previousHotkey
-    console.error('应用快捷键预设失败:', err)
-    error(`应用快捷键预设失败: ${err.message || '未知错误'}`)
-  }
+  await handleHotkeyChange(preset)
 }
-
-// 重置快捷键
+/**
+ * 将呼出键恢复为默认组合，默认键被占用时保留原键。
+ * @returns 保存完成后的 Promise。
+ */
 async function resetHotkey(): Promise<void> {
-  try {
-    const result = await window.ztools.internal.updateShortcut(defaultHotkey.value)
-    if (result.success) {
-      hotkey.value = defaultHotkey.value
-      await saveSettings()
-      console.log('重置快捷键成功:', hotkey.value)
-    } else {
-      error(`重置快捷键失败: ${result.error || '未知错误'}`)
-    }
-  } catch (err: any) {
-    console.error('重置快捷键失败:', err)
-    error(`重置快捷键失败: ${err.message || '未知错误'}`)
-  }
+  await handleHotkeyChange(defaultHotkey.value)
 }
 
 function handleQuickActionsClickOutside(): void {
@@ -1076,7 +1050,7 @@ async function handleFloatingBallChange(): Promise<void> {
 // 处理悬浮球文字变化
 async function handleFloatingBallLetterChange(): Promise<void> {
   try {
-    const letter = floatingBallLetter.value.trim() || 'Z'
+    const letter = floatingBallLetter.value.trim() || 'S'
     floatingBallLetter.value = letter
     await window.ztools.internal.setFloatingBallLetter(letter)
     console.log('悬浮球文字已更新:', letter)
@@ -1408,7 +1382,7 @@ async function loadSettings(): Promise<void> {
 
       // 悬浮球配置
       floatingBallEnabled.value = data.floatingBallEnabled ?? false
-      floatingBallLetter.value = data.floatingBallLetter || 'Z'
+      floatingBallLetter.value = data.floatingBallLetter || 'S'
 
       // 终端打开配置
       terminal.value = data.terminal ?? 'default'

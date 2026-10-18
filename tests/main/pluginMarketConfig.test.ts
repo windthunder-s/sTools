@@ -1,123 +1,48 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
-const mockGet = vi.hoisted(() => vi.fn())
-const mockPut = vi.hoisted(() => vi.fn())
-const mockHttpRequest = vi.hoisted(() => vi.fn())
-
-vi.mock('../../src/main/core/lmdb/lmdbInstance', () => ({
-  default: {
-    promises: {
-      get: mockGet,
-      put: mockPut
-    }
-  }
-}))
-
-vi.mock('../../src/main/utils/httpRequest.js', () => ({
-  httpRequest: mockHttpRequest
-}))
-
+const request = vi.hoisted(() => vi.fn())
+vi.mock('../../src/main/utils/httpRequest.js', () => ({ httpRequest: request }))
 import {
-  PluginMarketAuthRequiredError,
+  requestPluginMarket,
   PluginMarketAuthMode,
-  requestPluginMarket
+  PluginMarketAuthRequiredError,
+  getPluginMarketAuthHeaders
 } from '../../src/main/api/renderer/pluginMarketConfig'
 
-describe('requestPluginMarket', () => {
+describe('anonymous ZTools market', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockPut.mockResolvedValue({ ok: true, id: 'AUTH/official-account', rev: '2-test' })
-    mockGet.mockResolvedValue({
-      _id: 'AUTH/official-account',
-      _rev: '1-test',
-      data: {
-        serverUrl: 'wss://z.zosen.link',
-        token: 'expired-token',
-        refreshToken: 'expired-refresh-token',
-        username: 'official-user'
-      }
+    request.mockResolvedValue({ status: 200, data: {} })
+  })
+  it('uses the fixed public endpoint without forwarding credentials or cookies', async () => {
+    await requestPluginMarket('/plugins/download?name=base64', {
+      headers: { Authorization: 'secret', Cookie: 'session=secret' }
     })
-  })
-
-  it('retries an optional market request anonymously when token refresh fails', async () => {
-    mockHttpRequest
-      .mockResolvedValueOnce({ status: 401, data: { error: 'Unauthorized' } })
-      .mockResolvedValueOnce({ status: 401, data: { error: 'Invalid refresh token' } })
-      .mockResolvedValueOnce({
-        status: 200,
-        data: { name: '2048', downloadUrl: 'https://example.com/2048.zpx' }
-      })
-
-    const response = await requestPluginMarket('/plugins/download?name=2048', {
-      headers: { Authorization: 'Bearer caller-token' }
-    })
-
-    expect(response.status).toBe(200)
-    expect(mockHttpRequest).toHaveBeenCalledTimes(3)
-    expect(mockHttpRequest.mock.calls[0][1].headers.Authorization).toBe('Bearer expired-token')
-    expect(mockHttpRequest.mock.calls[2][1].headers.Authorization).toBeUndefined()
-  })
-
-  it('does not anonymously retry a required market request', async () => {
-    mockHttpRequest
-      .mockResolvedValueOnce({ status: 401, data: { error: 'Unauthorized' } })
-      .mockResolvedValueOnce({ status: 401, data: { error: 'Invalid refresh token' } })
-
-    await expect(
-      requestPluginMarket('/plugins/comments', { method: 'POST' }, PluginMarketAuthMode.REQUIRED)
-    ).rejects.toBeInstanceOf(PluginMarketAuthRequiredError)
-    expect(mockHttpRequest).toHaveBeenCalledTimes(2)
-  })
-
-  it('persists refreshed tokens and retries with the new access token', async () => {
-    const oldConfig = {
-      _id: 'AUTH/official-account',
-      _rev: '1-test',
-      data: {
-        serverUrl: 'wss://z.zosen.link',
-        token: 'expired-token',
-        refreshToken: 'expired-refresh-token',
-        username: 'official-user'
-      }
-    }
-    const newConfig = {
-      ...oldConfig,
-      data: {
-        ...oldConfig.data,
-        token: 'new-token',
-        refreshToken: 'new-refresh-token'
-      }
-    }
-    mockGet
-      .mockReset()
-      .mockResolvedValueOnce(oldConfig)
-      .mockResolvedValueOnce(oldConfig)
-      .mockResolvedValueOnce(oldConfig)
-      .mockResolvedValueOnce(oldConfig)
-      .mockResolvedValueOnce(oldConfig)
-      .mockResolvedValueOnce(newConfig)
-
-    mockHttpRequest
-      .mockResolvedValueOnce({ status: 401, data: { error: 'Unauthorized' } })
-      .mockResolvedValueOnce({
-        status: 200,
-        data: { token: 'new-token', refreshToken: 'new-refresh-token' }
-      })
-      .mockResolvedValueOnce({ status: 200, data: { items: [] } })
-
-    const response = await requestPluginMarket('/plugins/comments?pluginName=2048')
-
-    expect(response.status).toBe(200)
-    expect(mockHttpRequest).toHaveBeenCalledTimes(3)
-    expect(mockHttpRequest.mock.calls[2][1].headers.Authorization).toBe('Bearer new-token')
-    expect(mockPut).toHaveBeenCalledWith(
-      expect.objectContaining({
-        _id: 'AUTH/official-account',
-        data: expect.objectContaining({
-          token: 'new-token',
-          refreshToken: 'new-refresh-token'
-        })
-      })
+    expect(request).toHaveBeenCalledWith(
+      'https://z.zosen.link/api/market/plugins/download?name=base64',
+      expect.objectContaining({ method: 'GET', timeoutMs: 15000 })
     )
+    expect(request.mock.calls[0][1].headers).toBeUndefined()
+    expect(await getPluginMarketAuthHeaders()).toEqual({})
+  })
+  it.each(['/plugins/comments', 'https://example.com/plugins', '/plugins/../account/login'])(
+    'rejects non-public path %s',
+    async (p) => {
+      await expect(requestPluginMarket(p)).rejects.toThrow('只读')
+      expect(request).not.toHaveBeenCalled()
+    }
+  )
+  it('rejects writes before making a request', async () => {
+    await expect(requestPluginMarket('/plugins', { method: 'POST' })).rejects.toThrow('只读')
+    await expect(
+      requestPluginMarket('/plugins', {}, PluginMarketAuthMode.REQUIRED)
+    ).rejects.toBeInstanceOf(PluginMarketAuthRequiredError)
+    expect(request).not.toHaveBeenCalled()
+  })
+  it('reports authentication requirements without refreshing or retrying tokens', async () => {
+    request.mockResolvedValue({ status: 401 })
+    await expect(requestPluginMarket('/plugins/download?name=private')).rejects.toBeInstanceOf(
+      PluginMarketAuthRequiredError
+    )
+    expect(request).toHaveBeenCalledTimes(1)
   })
 })

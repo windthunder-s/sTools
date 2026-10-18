@@ -1,4 +1,6 @@
-import { BrowserWindow, ipcMain, session, shell } from 'electron'
+import { ZTOOLS_ECOSYSTEM_ENABLED } from '../../../shared/ecosystemPolicy'
+import { registerProductHandler } from '../../core/productIpc'
+import { BrowserWindow, session, shell } from 'electron'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -62,7 +64,7 @@ export class SyncAPI {
   private storageReload: Promise<void> = Promise.resolve()
 
   /**
-   * 初始化同步客户端、IPC 和账号凭据状态监听。
+   * 按产品策略注册同步 API；当前版本不启动云同步。
    * @param mainWindow 主窗口实例；当前同步通知直接发送到设置插件。
    * @param pluginManager 插件管理器，用于向设置插件发送状态更新。
    * @returns 无返回值。
@@ -70,6 +72,11 @@ export class SyncAPI {
   public init(mainWindow?: BrowserWindow, pluginManager?: PluginManager): void {
     this.mainWindow = mainWindow || null
     this.pluginManager = pluginManager || null
+    // sTools 只注册明确的移除响应，不启动上游账号或云同步。
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) {
+      this.setupIPC()
+      return
+    }
     this.recreateSyncClient()
     this.setupIPC()
     this.registerStorageSwitchListener()
@@ -313,7 +320,7 @@ export class SyncAPI {
    */
   private setupIPC(): void {
     // 测试 WebSocket 连接
-    ipcMain.handle('sync:test-connection', async (_event, config: SyncConfig) => {
+    registerProductHandler('sync:test-connection', async (_event, config: SyncConfig) => {
       try {
         return new Promise((resolve) => {
           const ws = new WebSocket(config.serverUrl)
@@ -337,22 +344,25 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-captcha-config', async (_event, params: { serverUrl: string }) => {
-      try {
-        const response = await fetch(
-          `${this.syncServerUrlToHttp(params.serverUrl)}/api/auth/captcha-config`
-        )
-        const data = await response.json()
-        if (!response.ok) {
-          return { success: false, error: data.error || '验证码配置加载失败' }
+    registerProductHandler(
+      'sync:get-captcha-config',
+      async (_event, params: { serverUrl: string }) => {
+        try {
+          const response = await fetch(
+            `${this.syncServerUrlToHttp(params.serverUrl)}/api/auth/captcha-config`
+          )
+          const data = await response.json()
+          if (!response.ok) {
+            return { success: false, error: data.error || '验证码配置加载失败' }
+          }
+          return { success: true, config: data }
+        } catch (error: any) {
+          return { success: false, error: error.message }
         }
-        return { success: true, config: data }
-      } catch (error: any) {
-        return { success: false, error: error.message }
       }
-    })
+    )
 
-    ipcMain.handle('account:get-session', async () => {
+    registerProductHandler('account:get-session', async () => {
       try {
         const session = await loadOfficialAccountSession()
         return { success: true, session }
@@ -361,7 +371,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle(
+    registerProductHandler(
       'account:login',
       async (
         _event,
@@ -389,7 +399,7 @@ export class SyncAPI {
       }
     )
 
-    ipcMain.handle(
+    registerProductHandler(
       'account:save-session',
       async (_event, params: { username: string; token: string; refreshToken?: string }) => {
         try {
@@ -403,7 +413,7 @@ export class SyncAPI {
       }
     )
 
-    ipcMain.handle('account:logout', async () => {
+    registerProductHandler('account:logout', async () => {
       try {
         await clearOfficialAccountSession()
         storageManager.switchAccount(null)
@@ -414,7 +424,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle(
+    registerProductHandler(
       'account:change-password',
       async (
         _event,
@@ -463,7 +473,7 @@ export class SyncAPI {
       }
     )
 
-    ipcMain.handle('account:delete', async () => {
+    registerProductHandler('account:delete', async () => {
       try {
         let config = await this.loadOfficialConfig()
         if (!config?.serverUrl || !config.token) {
@@ -513,7 +523,7 @@ export class SyncAPI {
     })
 
     // 登录/注册（自动：不存在则创建，存在则验证密码）
-    ipcMain.handle(
+    registerProductHandler(
       'sync:login',
       async (
         _event,
@@ -532,7 +542,7 @@ export class SyncAPI {
       }
     )
 
-    ipcMain.handle(
+    registerProductHandler(
       'sync:login-private',
       async (_event, params: { serverUrl: string; username: string; password: string }) => {
         try {
@@ -552,10 +562,10 @@ export class SyncAPI {
       }
     )
 
-    ipcMain.handle('sync:logout-private', () => this.logoutPrivateSession())
+    registerProductHandler('sync:logout-private', () => this.logoutPrivateSession())
 
     // 保存同步配置
-    ipcMain.handle('sync:save-config', async (_event, config: Partial<SyncProfile>) => {
+    registerProductHandler('sync:save-config', async (_event, config: Partial<SyncProfile>) => {
       try {
         const profile = await saveSyncProfile({
           ...config,
@@ -578,7 +588,7 @@ export class SyncAPI {
     })
 
     // 获取同步配置
-    ipcMain.handle('sync:get-config', async () => {
+    registerProductHandler('sync:get-config', async () => {
       try {
         const profile = await loadSyncProfile()
         return { success: true, config: profile }
@@ -588,11 +598,11 @@ export class SyncAPI {
     })
 
     // 获取同步状态
-    ipcMain.handle('sync:get-state', async () => {
+    registerProductHandler('sync:get-state', async () => {
       return { state: this.syncClient?.getState() || 'disconnected' }
     })
 
-    ipcMain.handle('sync:get-status', async () => {
+    registerProductHandler('sync:get-status', async () => {
       try {
         return { success: true, status: await this.getSyncStatus() }
       } catch (error: any) {
@@ -600,7 +610,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-default-import-status', async () => {
+    registerProductHandler('sync:get-default-import-status', async () => {
       try {
         return { success: true, status: defaultAccountImportService.getStatus() }
       } catch (error: any) {
@@ -608,7 +618,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:import-default-data', async () => {
+    registerProductHandler('sync:import-default-data', async () => {
       try {
         const config = await this.loadConfig()
         this.syncClient?.stop()
@@ -626,7 +636,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:skip-default-import', async () => {
+    registerProductHandler('sync:skip-default-import', async () => {
       try {
         defaultAccountImportService.skip(storageManager.getCurrentAccountUid())
         this.scheduleStatusChanged()
@@ -636,7 +646,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-account-stats', async () => {
+    registerProductHandler('sync:get-account-stats', async () => {
       try {
         let config = await this.loadOfficialConfig()
         if (!config?.serverUrl || !config.token) {
@@ -682,7 +692,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-account-credits', async () => {
+    registerProductHandler('sync:get-account-credits', async () => {
       try {
         return { success: true, credits: await officialAIService.getCredits() }
       } catch (error: unknown) {
@@ -693,7 +703,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-ai-checkin-status', async () => {
+    registerProductHandler('sync:get-ai-checkin-status', async () => {
       try {
         return { success: true, checkin: await officialAIService.getCheckinStatus() }
       } catch (error: unknown) {
@@ -704,7 +714,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:ai-checkin', async () => {
+    registerProductHandler('sync:ai-checkin', async () => {
       try {
         return { success: true, checkin: await officialAIService.checkin() }
       } catch (error: unknown) {
@@ -715,7 +725,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:create-ai-recharge-order', async (_event, amount: string) => {
+    registerProductHandler('sync:create-ai-recharge-order', async (_event, amount: string) => {
       try {
         return { success: true, order: await officialAIService.createRechargeOrder(amount) }
       } catch (error: unknown) {
@@ -726,7 +736,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-ai-recharge-order', async (_event, orderId: string) => {
+    registerProductHandler('sync:get-ai-recharge-order', async (_event, orderId: string) => {
       try {
         return { success: true, order: await officialAIService.getRechargeOrder(orderId) }
       } catch (error: unknown) {
@@ -737,7 +747,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:open-ai-recharge-url', async (_event, paymentUrl: string) => {
+    registerProductHandler('sync:open-ai-recharge-url', async (_event, paymentUrl: string) => {
       try {
         await this.openAfdianPaymentURL(paymentUrl)
         return { success: true }
@@ -749,7 +759,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:close-ai-recharge-window', () => {
+    registerProductHandler('sync:close-ai-recharge-window', () => {
       try {
         this.closeAfdianPaymentWindow()
         return { success: true }
@@ -761,7 +771,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-account-profile', async () => {
+    registerProductHandler('sync:get-account-profile', async () => {
       try {
         let config = await this.loadOfficialConfig()
         if (!config?.serverUrl || !config.token) {
@@ -804,7 +814,7 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:upload-account-avatar', async (_event, avatarPath: string) => {
+    registerProductHandler('sync:upload-account-avatar', async (_event, avatarPath: string) => {
       try {
         let config = await this.loadOfficialConfig()
         if (!config?.serverUrl || !config.token) {
@@ -841,11 +851,11 @@ export class SyncAPI {
       }
     })
 
-    ipcMain.handle('sync:get-retry-status', async () => {
+    registerProductHandler('sync:get-retry-status', async () => {
       return { success: true, status: this.syncClient?.getRetryStatus() || null }
     })
 
-    ipcMain.handle('sync:retry-now', async () => {
+    registerProductHandler('sync:retry-now', async () => {
       try {
         this.syncClient?.retryNow()
         this.scheduleStatusChanged()
@@ -856,7 +866,7 @@ export class SyncAPI {
     })
 
     // 立即触发同步（强制重连，无冷却期）
-    ipcMain.handle('sync:perform-sync', async () => {
+    registerProductHandler('sync:perform-sync', async () => {
       try {
         const config = await this.loadConfig()
         if (!config?.enabled) {
@@ -871,7 +881,7 @@ export class SyncAPI {
     })
 
     // 停止同步
-    ipcMain.handle('sync:stop-auto-sync', async () => {
+    registerProductHandler('sync:stop-auto-sync', async () => {
       try {
         this.syncClient!.stop()
         this.scheduleStatusChanged()
@@ -882,7 +892,7 @@ export class SyncAPI {
     })
 
     // 获取未同步文档数量
-    ipcMain.handle('sync:get-unsynced-count', async () => {
+    registerProductHandler('sync:get-unsynced-count', async () => {
       try {
         return { success: true, count: await this.getUnsyncedCount() }
       } catch (error: any) {
@@ -891,7 +901,7 @@ export class SyncAPI {
     })
 
     // 重置当前目标的本地同步进度，不删除文档、附件或其他服务器 checkpoint。
-    ipcMain.handle('sync:reset-local-sync-state', async () => {
+    registerProductHandler('sync:reset-local-sync-state', async () => {
       try {
         const config = await this.loadConfig()
         const result = this.syncClient!.resetLocalSyncState(config)
@@ -903,7 +913,7 @@ export class SyncAPI {
     })
 
     // 获取冲突文档数量
-    ipcMain.handle('sync:get-conflict-count', async () => {
+    registerProductHandler('sync:get-conflict-count', async () => {
       try {
         return { success: true, count: await this.getConflictCount() }
       } catch (error: any) {
@@ -912,7 +922,7 @@ export class SyncAPI {
     })
 
     // 列出存在冲突的文档
-    ipcMain.handle('sync:list-conflicts', async () => {
+    registerProductHandler('sync:list-conflicts', async () => {
       try {
         const syncPrefixes = SYNC_PREFIXES
         const items: Array<{
@@ -946,7 +956,7 @@ export class SyncAPI {
     })
 
     // 获取冲突详情（winner + loser leaf）
-    ipcMain.handle('sync:get-conflict-detail', async (_event, docId: string) => {
+    registerProductHandler('sync:get-conflict-detail', async (_event, docId: string) => {
       try {
         const winner = lmdbInstance.get(docId)
         const meta = lmdbInstance.getSyncMeta(docId)
@@ -967,7 +977,7 @@ export class SyncAPI {
     })
 
     // 解决冲突：选择某个 leaf 作为新的当前结果
-    ipcMain.handle(
+    registerProductHandler(
       'sync:resolve-conflict',
       async (_event, params: { docId: string; sourceRev: string }) => {
         try {
@@ -984,7 +994,7 @@ export class SyncAPI {
     )
 
     // 强制全量推送本地数据到云端
-    ipcMain.handle('sync:force-push-all', async () => {
+    registerProductHandler('sync:force-push-all', async () => {
       try {
         this.syncClient!.forcePushAll()
         this.scheduleStatusChanged()
@@ -997,27 +1007,30 @@ export class SyncAPI {
     // ==================== GitHub OAuth 登录（轮询方式）====================
 
     // GitHub 登录：初始化会话
-    ipcMain.handle('sync:github-init-session', async (_event, params: { serverUrl: string }) => {
-      try {
-        const httpUrl = this.syncServerUrlToHttp(params.serverUrl)
-        const response = await fetch(`${httpUrl}/api/auth/github/init-session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        })
+    registerProductHandler(
+      'sync:github-init-session',
+      async (_event, params: { serverUrl: string }) => {
+        try {
+          const httpUrl = this.syncServerUrlToHttp(params.serverUrl)
+          const response = await fetch(`${httpUrl}/api/auth/github/init-session`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          })
 
-        const data = await response.json()
-        if (!response.ok || !data.success) {
-          return { success: false, error: data.error || '初始化会话失败' }
+          const data = await response.json()
+          if (!response.ok || !data.success) {
+            return { success: false, error: data.error || '初始化会话失败' }
+          }
+
+          return { success: true, sessionId: data.sessionId, expiresIn: data.expiresIn }
+        } catch (error: any) {
+          return { success: false, error: error.message }
         }
-
-        return { success: true, sessionId: data.sessionId, expiresIn: data.expiresIn }
-      } catch (error: any) {
-        return { success: false, error: error.message }
       }
-    })
+    )
 
     // GitHub 登录：打开浏览器
-    ipcMain.handle(
+    registerProductHandler(
       'sync:github-open-browser',
       async (_event, params: { serverUrl: string; sessionId: string }) => {
         try {
@@ -1033,7 +1046,7 @@ export class SyncAPI {
     )
 
     // GitHub 登录：轮询状态
-    ipcMain.handle(
+    registerProductHandler(
       'sync:github-poll-status',
       async (_event, params: { serverUrl: string; sessionId: string }) => {
         try {
@@ -1049,7 +1062,7 @@ export class SyncAPI {
     )
 
     // 更新用户昵称
-    ipcMain.handle(
+    registerProductHandler(
       'sync:update-nickname',
       async (
         _event,

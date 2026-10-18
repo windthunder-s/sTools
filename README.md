@@ -1,270 +1,68 @@
-# ZTools
+# sTools
 
-<div align="center">
+基于 **ZTools 3.2.0** 改造的 Windows 桌面工具箱，使用其 **Electron 41 + Vue 3 + TypeScript** 框架、前端、设置插件和插件运行机制。当前版本 **0.6.0**。上游 MIT 许可证见 [LICENSE](LICENSE)，来源和改动见 [UPSTREAM.md](UPSTREAM.md)。
 
-<img src="./.github/assets/icon.png" alt="ZTools Logo" width="120">
+## 功能与插件
 
-**A High-Performance, Extensible Application Launcher and Plugin Platform**
+在设置中打开「功能与插件」，可以一起查看内置功能、ZTools 市场插件、本地安装和开发插件，并按来源筛选。内置「本地工具」提供 Everything 搜索、Snipaste 截图/贴图以及每项功能的快捷键入口；所有已安装插件可在新增的「插件快捷键」页面按功能查看、设置和修改快捷键；插件详情顶部也提供直达入口。
 
-_Open Source Implementation of uTools | Supports macOS and Windows_
+「插件市场」接入 ZTools 公开目录，支持免登录搜索、下载、安装和更新。网络失败时显示明确的错误和重试入口，有历史目录时标注为缓存。内置功能随 sTools 更新，不能由市场覆盖或卸载。
 
-[![GitHub release](https://img.shields.io/github/v/release/lzx8589561/ZTools)](https://github.com/ZToolsCenter/ZTools/releases)
-[![License](https://img.shields.io/github/license/lzx8589561/ZTools)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)](https://github.com/ZToolsCenter/ZTools)
+## 插件快捷键
 
-English | [简体中文](./README_CN.md)
+左侧「功能与插件」与「插件市场」之间新增「插件快捷键」。也可直接搜索「插件快捷键汇总」打开。页面顶部的「快速打开 sTools」显示当前呼出键，可直接修改或恢复默认 `Ctrl+Alt+Space`，与通用设置同步；sTools 需保持后台运行。
 
-</div>
+- 按插件和功能汇总，多个启动指令合并为一个功能；显示全局、仅主搜索页及已停用的快捷键。
+- 支持按插件、关键词和已设置/待设置筛选；截图、录屏、GIF、贴图使用易懂名称。
+- 点「设置快捷键」，再点击录制框并按下组合键，保存立即生效；点击已有组合键可修改、移除或重新启用。
+- 全局快捷键在 sTools 后台运行时生效；应用内快捷键仅在主搜索页生效，打开插件后不会触发。
+- 与原「快捷键管理」共用配置；所有入口统一检查主唤起键、全局/应用内绑定、启用的内置操作及已知 Windows 保留键，识别 Ctrl/Control 等别名；注册或保存失败保留原键。
+- 新全局组合键通过操作系统注册检查是否被其它应用占用；原生截图优化也先检查。同键改指令需要明确编辑，异步注册期间不允许另一指令抢占。其它软件的低级键盘钩子及双击修饰键无法保证检测。
+- 需要文字、图片或文件的内容型功能显示使用前提；其高级快捷键仍可在原「快捷键管理」中配置。
 
-## ❤️ Sponsors
+## 本地搜索与截图
 
-> [Want to appear here?](mailto:8589561@qq.com)
+Windows 主搜索默认使用 **Everything 官方 SDK IPC**，由本机 Everything 提供索引。直接输入 Everything 原生表达式，例如 `ext:pdf size:>10mb`、`dm:today`、`regex:`；支持名称、路径、大小和修改时间排序，以及大小写、全字和路径匹配选项。Everything 需在后台运行，主搜索不依赖 `es.exe`。
 
-<details open>
-<summary>Click to collapse</summary>
+分类为全部、应用、插件、文件、文件夹、系统；Alt+1–6 切换，Enter 打开，Ctrl+Enter 定位，右键复制路径。分类缓存避免重复查询，每页 100 项并可继续加载。文件变化通过活动查询刷新和分页指纹校验处理。搜索范围及排除规则由 Everything 设置管理，不沿用内置引擎的排除目录。
 
-<table>
-  <tr>
-    <td width="240" align="center">
-      <a href="https://go.apimart.ai/gh-ztools">
-        <img src="./.github/assets/sponsors/apimart.png" alt="APIMart" width="220">
-      </a>
-    </td>
-    <td>
-      Thanks to <a href="https://go.apimart.ai/gh-ztools">APIMart</a> for sponsoring this project! APIMart is a low-cost API platform for AI image &amp; video generation — GPT-Image-2 from $0.006/image, 160+ images per dollar. One async API covers both image and video: submit a task, get an ID, fetch results via polling or callback. Batch tens of thousands of images without timeouts, switch models without changing code. Pay-as-you-go with no monthly fee — <a href="https://go.apimart.ai/gh-ztools">sign up here</a> to get started.
-    </td>
-  </tr>
-</table>
+sTools 自研 MFT/USN 索引保留为可选备用引擎，SDK 模式不运行该索引工作线程。SDK 接入、测试和当前边界见 [SDK 搜索说明](docs/SDK-SEARCH.md)，备用引擎的历史记录见 [内置搜索说明](docs/FAST-SEARCH.md)。
 
-</details>
+内置「截图与录屏」支持区域标注、PNG、贴图、MP4、GIF 和手动滚动长截图。0.6.0 提供统一选区与模式切换；快速入口默认直接截图，可在插件面板更改默认模式。首次无已有截图绑定时尝试注册 F1，冲突会提示，已有绑定保留。当前标注可调整颜色和粗细，闭环画笔、单击绘制、录屏取消重试和小贴图控制条已修复。使用方法见 [截图工具说明](docs/CAPTURE-TOOLS.md)，功能研究及验证范围见 [功能对照](docs/CAPTURE-REVIEW.md)。
 
----
+保留 Everything 独立内嵌搜索、Snipaste 截图和贴图，可在统一快捷键管理中绑定。使用及本机依赖见 [LOCAL-TOOLS.md](LOCAL-TOOLS.md)。
 
-## ✨ Features
+## 这一版
 
-- 🚀 **Quick Launch** - Pinyin search, regex matching, history tracking, pinned apps
-- 🧩 **Plugin System** - Support for UI plugins and headless plugins with complete API support
-- 📋 **Clipboard Management** - History tracking, search, image support, cross-platform native implementation
-- 🎨 **Theme Customization** - System/light/dark mode with 6 theme colors to choose from
-- ⚡ **High Performance** - LMDB database, WebContentsView architecture, ultra-fast response
-- 🌍 **Cross-Platform** - Native support for macOS and Windows with unified experience
-- 🔒 **Data Isolation** - Independent plugin data storage, secure and reliable
-- 🛠️ **Developer Friendly** - Complete TypeScript type support, hot reload development
-- ⚙️ **Modern Tech Stack** - Electron 41 + Node 24.15 + Chrome 146
+- 保留原有启动器、插件页面、插件安装和功能级快捷键机制。
+- 默认 `Ctrl+Alt+Space` 呼出主窗口；搜索「快捷键管理」或 `kjj` 进入统一管理。
+- 设置默认打开快捷键页，可直接「浏览全部功能」并为插件指令绑定全局快捷键或别名。
+- 使用独立应用标识 `dev.stools.desktop` 和用户目录下 `.stools` 数据目录，不读取或覆盖已安装 ZTools 的配置。
+- 保留 `window.ztools` 和兼容 API 命名，以维持插件调用契约。独立接入 ZTools 公开插件市场；ZTools 账号、云同步、社区评论、通知及官方 AI 服务保持关闭，本地插件与 sTools 微信/手机号预留入口保留。
+- sTools 应用采用手动更新，已关闭上游应用更新通道。原生模块来自官方源码仓库内的 resources，不借用本机已安装 ZTools 的程序目录。
 
-## 📸 Preview
+旧 C#/WPF 0.1.0 版本完整保存在 `legacy/wpf-0.1.0`，不参与新版构建。
 
-<div align="center">
-  <img src="./.github/assets/demo.gif" alt="ZTools Demo" width="600">
-  <p><i>Quick launch and search functionality demo</i></p>
-</div>
+## 开发与验证
 
-### Interface Showcase
+开发和索引测试使用 Node.js 24、pnpm 9.15.9。运行版使用 Electron 内置 Node/SQLite，用户无需单独安装。项目使用锁文件锁定依赖。
 
-<div align="center">
-  <table>
-    <tr>
-      <td width="50%">
-        <img src="./.github/assets/main-light.png" alt="Main Interface - Light Theme">
-        <p align="center"><i>Main Interface - Light Theme</i></p>
-      </td>
-      <td width="50%">
-        <img src="./.github/assets/main-dark.png" alt="Main Interface - Dark Theme">
-        <p align="center"><i>Main Interface - Dark Theme</i></p>
-      </td>
-    </tr>
-    <tr>
-      <td width="50%">
-        <img src="./.github/assets/settings.png" alt="Settings">
-        <p align="center"><i>Settings - Theme Customization and General Settings</i></p>
-      </td>
-      <td width="50%">
-        <img src="./.github/assets/plugin-market.png" alt="Plugin Market">
-        <p align="center"><i>Plugin Market - Online Installation and Management</i></p>
-      </td>
-    </tr>
-  </table>
-</div>
-
-## 🚀 Quick Start
-
-### Installation
-
-#### Method 1: Download Pre-built Version (Recommended)
-
-Download the latest version from [Releases](https://github.com/ZToolsCenter/ZTools/releases):
-
-- **macOS**: `ztools-x.x.x.dmg` or `ZTools-x.x.x-arm64-mac.zip`
-- **Windows**: `ztools-x.x.x-setup.exe` or `ztools-x.x.x-win.zip`
-
-#### Method 2: Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/ZToolsCenter/ZTools.git
-cd ZTools
-
-# Install dependencies
-pnpm install
-
-# Development mode
+```powershell
+pnpm install --frozen-lockfile
+pnpm --dir internal-plugins/setting install --frozen-lockfile
 pnpm dev
-
-# Build
-pnpm build:mac    # macOS
-pnpm build:win    # Windows
-pnpm build:linux  # Linux (Default Arch)
-pnpm build:linux:x64 # Linux (amd64/x64)
-pnpm build:linux:arm64 # Linux (arm64)
 ```
 
-### Usage
-
-1. After launching the app, use the shortcut `Option+Z` (macOS) or `Alt+Z` (Windows) to open the main interface
-2. Enter application name or command to search
-3. Use `↑` `↓` `←` `→` to navigate, `Enter` to confirm, `Esc` to exit
-
-## 🧩 Plugin Development
-
-ZTools is a powerful and extensible plugin platform that enhances your productivity with custom plugins. With simple configuration, rich APIs, and cross-platform support, you can easily develop powerful plugins.
-
-**Plugin System Features**:
-
-- 📝 **Simple Configuration** - Easily define plugins through standard `plugin.json` files, no complex setup required
-- 🔌 **Rich APIs** - Access system capabilities through the global `ztools` object, including notifications, simulated input, and persistent storage
-- 🎯 **Flexible Commands** - Trigger your plugins using text, regex, or global hooks to adapt to any workflow
-- 🌍 **Cross-Platform** - Build once, run on Windows, macOS, and Linux with a consistent experience across all devices
-
-> 📖 **Full Documentation**: Visit [ZTools Developer Documentation](https://ztoolscenter.github.io/ZTools-doc/) for more details
-
-## 🛠️ Tech Stack
-
-- **Framework**: Electron 41 + Vue 3 + TypeScript
-- **Build**: Vite + electron-vite
-- **Database**: LMDB (high-performance key-value storage)
-- **State Management**: Pinia
-- **Search Engine**: Fuse.js (with Pinyin support)
-- **Native Modules**: C++ (Node-API)
-  - Clipboard monitoring
-  - Window management
-  - Region screenshot (Windows)
-
-## 📁 Project Structure
-
-```
-ztools/
-├── src/
-│   ├── main/              # Main process
-│   │   ├── api/          # IPC API modules
-│   │   ├── core/         # Core functionality (database, native modules)
-│   │   ├── windowManager.ts
-│   │   └── pluginManager.ts
-│   ├── preload/          # Preload scripts
-│   └── renderer/         # Renderer process (Vue)
-│       ├── components/
-│       ├── stores/       # Pinia state management
-│       └── App.vue
-├── resources/            # Resource files
-│   ├── lib/             # Native modules (.node)
-│   └── preload.js       # Plugin preload
-└── CLAUDE.md            # Complete technical documentation
+```powershell
+pnpm build
+pnpm test
+pnpm test:e2e
 ```
 
-## 📚 Documentation
+E2E 使用源码 Electron 和独立的临时数据目录，设置插件开发服务器在 `127.0.0.1:15177`，截图输出到 `test-results/playwright`，不需要下载独立 Chromium。
 
-- [CLAUDE.md](./CLAUDE.md) - Complete technical documentation and architecture description
-- [Development Commands](#development-commands) - Common command reference
-- [Plugin Development](#plugin-development) - Plugin development guide
+构建通过后运行 `pnpm start`。生成 Windows 分发包使用 `pnpm build:win`；输出目录为 `release`，不自动安装，不创建桌面功能图标。
 
-## 💻 Development
+独立测试或多份开发配置可使用 `STOOLS_DATA_ROOT` 和 `STOOLS_LEGACY_USER_DATA_PATH` 指定数据与旧数据目录。普通运行无需设置环境变量。
 
-### Requirements
-
-- Node.js >= 18
-- npm >= 9
-- macOS or Windows development environment
-
-### Development Commands
-
-```bash
-# Install dependencies
-pnpm install
-
-# Development mode (hot reload)
-pnpm dev
-
-# Type checking
-pnpm typecheck          # All
-pnpm typecheck:node     # Main process + preload
-pnpm typecheck:web      # Renderer process
-
-# Code formatting
-pnpm format             # Prettier formatting
-pnpm lint               # ESLint check
-
-# Build
-pnpm build              # Compile source code only
-pnpm build:mac          # Package macOS app
-pnpm build:win          # Package Windows app
-pnpm build:linux        # Package Linux app (Default Arch)
-pnpm build:linux:x64    # Package Linux app (amd64/x64)
-pnpm build:linux:arm64  # Package Linux app (arm64)
-pnpm build:unpack       # Package without installer (for debugging)
-```
-
-### Debugging
-
-- Main process: Press F5 in VS Code, or use `pnpm dev` to view terminal logs
-- Renderer process: Press `Cmd+Option+I` (macOS) or `Ctrl+Shift+I` (Windows) to open developer tools
-- Plugins: Click "Open DevTools" button on the plugin page
-
-## 🗺️ Roadmap
-
-### Completed ✅
-
-- [x] Quick app launch and search
-- [x] Plugin system (UI + headless)
-- [x] Clipboard history management
-- [x] Cross-platform support (macOS + Windows)
-- [x] LMDB database migration
-- [x] Theme customization
-- [x] Data isolation
-- [x] Plugin market
-- [x] Custom global shortcuts
-- [x] Separate plugins into independent windows
-- [ ] Plugin auto-update
-- [ ] Cloud sync (optional)
-- [ ] Linux support
-- [ ] MCP toolkit
-
-## 🐛 Issue Reporting
-
-Having issues? Please report them in [Issues](https://github.com/ZToolsCenter/ZTools/issues).
-
-When submitting an issue, please include:
-
-- Operating system version
-- ZTools version
-- Steps to reproduce
-- Error logs (if any)
-
-## 📄 License
-
-This project is licensed under the [MIT License](./LICENSE).
-
-## 💝 Acknowledgments
-
-- [uTools](https://u.tools/) - Source of inspiration
-- [Electron](https://www.electronjs.org/) - Cross-platform desktop app framework
-- [Vue.js](https://vuejs.org/) - Progressive JavaScript framework
-- [LMDB](http://www.lmdb.tech/) - High-performance embedded database
-
----
-
-<div align="center">
-
-**If this project helps you, please give it a Star ⭐️**
-
-Made with ❤️ by [lzx8589561](https://github.com/lzx8589561)
-
-</div>
+登录入口预留微信扫码和手机号验证码两种方式；尚未接入认证服务，不收集手机号、不发送短信，所有本地功能可免登录使用。搜索框默认图标已改为 S。上游插件的独立依赖和权限要求仍以对应插件为准。

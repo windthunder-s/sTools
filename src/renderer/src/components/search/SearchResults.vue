@@ -1,51 +1,121 @@
 <template>
-  <div ref="scrollContainerRef" class="scrollable-content" @click="handleContainerClick">
-    <!-- 聚合模式 -->
-    <AggregateView
-      v-if="searchMode === 'aggregate'"
-      v-model:recent-expanded="isRecentExpanded"
-      v-model:pinned-expanded="isPinnedExpanded"
-      v-model:search-results-expanded="isSearchResultsExpanded"
-      v-model:best-matches-expanded="isBestMatchesExpanded"
-      v-model:recommendations-expanded="isRecommendationsExpanded"
-      :search-query="searchQuery"
-      :pasted-image="pastedImage"
-      :pasted-files="pastedFiles"
-      :pasted-text="pastedText"
-      :best-search-results="bestSearchResults"
-      :best-matches="bestMatches"
-      :recommendations="recommendationItems"
-      :main-push-groups="mainPushGroups"
-      :display-apps="displayApps"
-      :pinned-apps="pinnedApps"
-      :window-matched-actions="windowMatchedActions"
-      :window-match-title="windowMatchTitle"
-      :navigation-grid="navigationGrid"
-      :selected-row="selectedRow"
-      :selected-col="selectedCol"
-      :loading="loading"
-      :show-recent-in-search="showRecentInSearch"
-      :recent-rows="windowStore.recentRows"
-      :pinned-rows="windowStore.pinnedRows"
-      @select="handleSelectApp"
-      @select-window="handleWindowAction"
-      @select-recommendation="handleRecommendationSelect"
-      @select-main-push="handleMainPushSelectAction"
-      @enter-main-push-app="handleEnterMainPushApp"
-      @contextmenu="handleAppContextMenu"
-      @update:pinned-order="updatePinnedOrder"
-      @height-changed="emit('height-changed')"
+  <div class="search-results-container" @click="handleContainerClick">
+    <div v-if="isUnifiedSearch" class="search-categories" role="tablist" aria-label="搜索分类">
+      <button
+        v-for="(category, index) in SEARCH_CATEGORIES"
+        :key="category.key"
+        role="tab"
+        :aria-selected="activeCategory === category.key"
+        :data-category="category.key"
+        :title="category.label + ' · Alt+' + (index + 1)"
+        @click="activeCategory = category.key"
+      >
+        {{ category.label }}
+      </button>
+      <button class="search-settings-entry" @click="searchSettingsOpen = !searchSettingsOpen">
+        搜索设置
+      </button>
+    </div>
+    <div v-if="!isUnifiedSearch && !searchSettingsOpen" class="search-home-status">
+      <span
+        >{{ engineLabel
+        }}<template v-if="searchStatus?.index.phase === 'scanning'"> · 正在建立索引</template></span
+      >
+      <button @click="searchSettingsOpen = true">搜索设置</button>
+    </div>
+    <SearchSettings
+      v-if="searchSettingsOpen"
+      @close="closeSearchSettings"
+      @changed="refreshStatus(true)"
     />
-
-    <!-- 列表模式 -->
-    <div v-if="searchMode === 'list' && hasSearchContent" class="list-mode-results">
-      <VerticalList
-        :apps="allListModeResults"
-        :selected-index="listModeSelectedIndex"
+    <div v-else ref="scrollContainerRef" class="scrollable-content">
+      <!-- 聚合模式 -->
+      <AggregateView
+        v-if="searchMode === 'aggregate'"
+        v-model:recent-expanded="isRecentExpanded"
+        v-model:pinned-expanded="isPinnedExpanded"
+        v-model:search-results-expanded="isSearchResultsExpanded"
+        v-model:best-matches-expanded="isBestMatchesExpanded"
+        v-model:recommendations-expanded="isRecommendationsExpanded"
         :search-query="searchQuery"
+        :pasted-image="pastedImage"
+        :pasted-files="pastedFiles"
+        :pasted-text="pastedText"
+        :best-search-results="bestSearchResults"
+        :best-matches="bestMatches"
+        :recommendations="recommendationItems"
+        :main-push-groups="visibleMainPushGroups"
+        :display-apps="displayApps"
+        :pinned-apps="pinnedApps"
+        :window-matched-actions="visibleWindowActions"
+        :window-match-title="windowMatchTitle"
+        :navigation-grid="navigationGrid"
+        :selected-row="selectedRow"
+        :selected-col="selectedCol"
+        :loading="loading"
+        :show-recent-in-search="showRecentInSearch"
+        :recent-rows="windowStore.recentRows"
+        :pinned-rows="windowStore.pinnedRows"
         @select="handleSelectApp"
-        @contextmenu="(app) => handleAppContextMenu(app, 'search')"
+        @select-window="handleWindowAction"
+        @select-recommendation="handleRecommendationSelect"
+        @select-main-push="handleMainPushSelectAction"
+        @enter-main-push-app="handleEnterMainPushApp"
+        @contextmenu="handleAppContextMenu"
+        @update:pinned-order="updatePinnedOrder"
+        @height-changed="emit('height-changed')"
       />
+
+      <section
+        v-if="searchMode === 'aggregate' && indexedResults.length"
+        class="indexed-results"
+        aria-label="本机搜索结果"
+      >
+        <div class="indexed-heading">
+          本机结果 <span>{{ engineLabel }} · {{ indexedResults.length }} 项</span>
+        </div>
+        <VerticalList
+          :apps="indexedResults"
+          :selected-index="indexedSelectedIndex"
+          :search-query="searchQuery"
+          @select="handleSelectApp"
+          @contextmenu="(app) => handleAppContextMenu(app, 'search')"
+        />
+      </section>
+      <!-- 列表模式 -->
+      <div v-if="searchMode === 'list' && hasSearchContent" class="list-mode-results">
+        <VerticalList
+          :apps="allListModeResults"
+          :selected-index="listModeSelectedIndex"
+          :search-query="searchQuery"
+          @select="handleSelectApp"
+          @contextmenu="(app) => handleAppContextMenu(app, 'search')"
+        />
+      </div>
+      <div v-if="isUnifiedSearch" class="search-status" role="status">
+        <span v-if="indexLoading">{{ engineLabel }}正在搜索…</span>
+        <span v-else-if="searchStatus?.index.phase === 'scanning'"
+          >正在建立本地索引 · 已收录
+          {{ searchStatus.index.count.toLocaleString() }} 项，结果会逐步补全</span
+        >
+        <template v-else-if="indexError">
+          <span class="search-error">{{ indexError }}</span>
+          <button @click="searchSettingsOpen = true">搜索设置</button>
+          <button @click="retryIndex">重试</button
+          ><button @click="openToolSettings">工具设置</button>
+        </template>
+        <span v-else-if="!navigationGrid.length">此分类下没有找到结果</span>
+        <template v-else-if="indexLimited">
+          <span>已加载 {{ indexedItems.length }} / {{ indexTotal }} 项</span>
+          <button :disabled="loadingMore" @click.stop="loadMore" @keydown.stop>
+            {{ loadingMore ? '正在加载…' : '加载更多' }}
+          </button>
+        </template>
+        <span v-else-if="indexedResults.length"
+          >↑↓ 选择 · Enter 打开 · Ctrl+Enter 打开所在位置 · Alt+1–6 切换分类</span
+        >
+        <span v-if="actionError" class="search-error">{{ actionError }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -65,11 +135,21 @@ import {
 } from '../../composables/useMainPushSetting'
 import { useNavigation } from '../../composables/useNavigation'
 import { useSearchResults } from '../../composables/useSearchResults'
+import { useFileSearch } from '../../composables/useFileSearch'
+import SearchSettings from './SearchSettings.vue'
+import {
+  SEARCH_CATEGORIES,
+  searchCategory,
+  everythingCategory,
+  uniqueEverythingItems,
+  type SearchCategory
+} from '@shared/unifiedSearch'
+import type { Command } from '../../stores/commandDataStore'
 import { useCommandDataStore } from '../../stores/commandDataStore'
 import { useWindowStore } from '../../stores/windowStore'
 import VerticalList from '../common/VerticalList.vue'
 import AggregateView from './AggregateView.vue'
-import { buildAggregateNavigationGrid } from './navigationGrid'
+import { buildAggregateNavigationGrid, type NavigationGridRow } from './navigationGrid'
 
 // MatchFile 接口（传递给插件的文件格式）
 interface MatchFile {
@@ -128,8 +208,80 @@ const {
 } = commandDataStore
 
 // 使用搜索结果 composable
-const { bestSearchResults, bestMatches, recommendations, allListModeResults } =
-  useSearchResults(props)
+const rawResults = useSearchResults(props)
+const activeCategory = ref<SearchCategory>('all')
+const actionError = ref('')
+const searchSettingsOpen = ref(false)
+/**
+ * 关闭搜索设置并将焦点交还主输入框。
+ * @returns 无返回值。
+ */
+function closeSearchSettings(): void {
+  searchSettingsOpen.value = false
+  emit('focus-input')
+}
+const isUnifiedSearch = computed(() =>
+  Boolean(props.searchQuery.trim() && !props.pastedImage && !props.pastedFiles && !props.pastedText)
+)
+const {
+  items: indexedItems,
+  loading: indexLoading,
+  error: indexError,
+  limited: indexLimited,
+  total: indexTotal,
+  loadingMore,
+  loadMore,
+  retry: retryIndex,
+  status: searchStatus,
+  engineLabel,
+  refreshStatus
+} = useFileSearch(
+  computed(() => props.searchQuery),
+  activeCategory,
+  isUnifiedSearch
+)
+
+/**
+ * 分类筛选保留原有相关性排序；粘贴匹配不受分类影响。
+ * @param commands 已匹配的指令。
+ * @returns 当前分类内的指令。
+ */
+function filterCategory(commands: Command[]): Command[] {
+  return !isUnifiedSearch.value || activeCategory.value === 'all'
+    ? commands
+    : commands.filter((command) => searchCategory(command) === activeCategory.value)
+}
+const bestSearchResults = computed(() => filterCategory(rawResults.bestSearchResults.value))
+const bestMatches = computed(() => filterCategory(rawResults.bestMatches.value))
+const recommendations = computed(() => filterCategory(rawResults.recommendations.value))
+const indexedResults = computed<Command[]>(() =>
+  uniqueEverythingItems(
+    indexedItems.value,
+    filterCategory(rawResults.allListModeResults.value)
+  ).map((item) => ({
+    name: item.name,
+    path: item.path,
+    type: 'local-file' as const,
+    subType: everythingCategory(item) === 'app' ? ('app' as const) : ('local-shortcut' as const),
+    category: everythingCategory(item),
+    searchSource: 'everything' as const
+  }))
+)
+const allListModeResults = computed(() => [
+  ...filterCategory(rawResults.allListModeResults.value),
+  ...indexedResults.value
+])
+
+/**
+ * 从错误提示打开与主搜索共享配置的本地工具设置。
+ * @returns 插件启动完成后结束的 Promise。
+ */
+async function openToolSettings(): Promise<void> {
+  const command = commandDataStore.commands.find(
+    (item) => item.pluginName === 'local-tools' && item.featureCode === 'configure'
+  )
+  if (command) await handleSelectApp(command)
+}
 
 // 为推荐项附加仅用于渲染的置顶状态，避免把 UI 字段写入固定列表数据。
 const recommendationItems = computed(() =>
@@ -141,6 +293,11 @@ const recommendationItems = computed(() =>
 
 // 使用 mainPush 结果 composable
 const { mainPushGroups, handleMainPushSelect } = useMainPushResults(props)
+const visibleMainPushGroups = computed(() =>
+  !isUnifiedSearch.value || ['all', 'plugin'].includes(activeCategory.value)
+    ? mainPushGroups.value
+    : []
+)
 
 // 内部状态
 const scrollContainerRef = ref<HTMLElement>()
@@ -201,6 +358,8 @@ const windowMatchedActions = computed(() => {
   return matched
 })
 
+const visibleWindowActions = computed(() => filterCategory(windowMatchedActions.value))
+
 // 窗口匹配栏的标题（基于当前窗口的 app 名称）
 const windowMatchTitle = computed(() => {
   const currentWindow = windowStore.currentWindow
@@ -234,7 +393,7 @@ const isBestMatchesExpanded = ref(false)
 const isRecommendationsExpanded = ref(false)
 
 // 构建导航网格
-const navigationGrid = computed(() => {
+const navigationGrid = computed<NavigationGridRow[]>(() => {
   // 列表模式：使用一维数组（每个项目占一行）
   if (searchMode.value === 'list') {
     if (!hasSearchContent.value) {
@@ -243,13 +402,13 @@ const navigationGrid = computed(() => {
     return allListModeResults.value.map((item: any) => ({ type: 'listItem', items: [item] }))
   }
 
-  return buildAggregateNavigationGrid({
+  const rows = buildAggregateNavigationGrid({
     hasSearchContent: hasSearchContent.value,
     bestSearchResults: bestSearchResults.value,
     bestMatches: bestMatches.value,
     recommendations: recommendationItems.value,
-    mainPushGroups: mainPushGroups.value,
-    windowMatchedActions: windowMatchedActions.value,
+    mainPushGroups: visibleMainPushGroups.value,
+    windowMatchedActions: visibleWindowActions.value,
     displayApps: displayApps.value,
     pinnedApps: pinnedApps.value,
     showRecentInSearch: showRecentInSearch.value,
@@ -261,6 +420,7 @@ const navigationGrid = computed(() => {
     recentRows: windowStore.recentRows,
     pinnedRows: windowStore.pinnedRows
   })
+  return [...rows, ...indexedResults.value.map((item) => ({ type: 'indexed', items: [item] }))]
 })
 
 // 使用导航 composable
@@ -269,8 +429,38 @@ const {
   selectedCol,
   selectedItem,
   handleKeydown: handleNavigationKeydown,
-  resetSelection
+  resetSelection: resetNavigationSelection
 } = useNavigation(searchMode, navigationGrid)
+
+/**
+ * 重置选中项和结果滚动位置，避免新关键词或分类沿用旧列表的偏移。
+ * @returns 无返回值。
+ */
+function resetSelection(): void {
+  resetNavigationSelection()
+  if (scrollContainerRef.value) scrollContainerRef.value.scrollTop = 0
+}
+
+const indexedSelectedIndex = computed(() => {
+  if (navigationGrid.value[selectedRow.value]?.type !== 'indexed') return -1
+  return selectedRow.value - navigationGrid.value.findIndex((row) => row.type === 'indexed')
+})
+watch([activeCategory, isUnifiedSearch, searchMode], () => {
+  if (!isUnifiedSearch.value) activeCategory.value = 'all'
+  resetSelection()
+})
+watch(
+  [
+    navigationGrid,
+    indexLoading,
+    indexError,
+    indexLimited,
+    actionError,
+    searchSettingsOpen,
+    searchStatus
+  ],
+  () => nextTick(() => emit('height-changed'))
+)
 
 // 列表模式的选中索引（一维索引）
 const listModeSelectedIndex = computed(() => {
@@ -303,6 +493,7 @@ watch(
   ],
   () => {
     resetSelection()
+    actionError.value = ''
     // 重置所有折叠状态
     isRecentExpanded.value = false
     isPinnedExpanded.value = false
@@ -327,57 +518,29 @@ watch(
   }
 )
 
-// 滚动到选中的项
+/**
+ * 将网格指令或 Everything 列表中的当前项滚动到可见区域。
+ * @returns 无返回值。
+ */
 function scrollToSelectedItem(): void {
-  const container = scrollContainerRef.value
-  if (!container) {
-    return
-  }
-
   nextTick(() => {
-    let selectedElement: HTMLElement | null = null
+    // DOM 更新后读取当前选中项，不保留会在换词后执行的旧滚动定时器。
+    const container = scrollContainerRef.value
+    if (!container?.isConnected) return
+    const selector =
+      searchMode.value === 'list' || navigationGrid.value[selectedRow.value]?.type === 'indexed'
+        ? '.list-item.selected'
+        : '.app-item.selected'
+    const selectedElement = container.querySelector<HTMLElement>(selector)
+    if (!selectedElement) return
 
-    // 列表模式：查找 .list-item.selected
-    if (searchMode.value === 'list') {
-      const listItems = container.querySelectorAll('.list-item.selected')
-      if (listItems && listItems.length > 0) {
-        selectedElement = listItems[0] as HTMLElement
-      }
-    } else {
-      // 聚合模式：查找 .app-item.selected
-      const appItems = container.querySelectorAll('.app-item.selected')
-      if (appItems && appItems.length > 0) {
-        selectedElement = appItems[0] as HTMLElement
-      }
-    }
-
-    if (!selectedElement) {
-      return
-    }
-
-    const containerRect = container.getBoundingClientRect()
-    const targetRect = selectedElement.getBoundingClientRect()
-
-    // 检查是否在可见区域内
-    const isAbove = targetRect.top < containerRect.top
-    const isBelow = targetRect.bottom > containerRect.bottom
-
-    if (isAbove) {
-      const scrollTop = container.scrollTop + (targetRect.top - containerRect.top)
-      setTimeout(() => {
-        container.scrollTo({
-          top: Math.max(0, scrollTop),
-          behavior: 'auto'
-        })
-      }, 50)
-    } else if (isBelow) {
-      const scrollTop = container.scrollTop + (targetRect.bottom - containerRect.bottom)
-      setTimeout(() => {
-        container.scrollTo({
-          top: scrollTop,
-          behavior: 'auto'
-        })
-      }, 50)
+    // 分类栏独立在滚动区外，文件只能绘制在此视口内。
+    const viewport = container.getBoundingClientRect()
+    const item = selectedElement.getBoundingClientRect()
+    if (item.top < viewport.top) {
+      container.scrollBy({ top: item.top - viewport.top, behavior: 'auto' })
+    } else if (item.bottom > viewport.bottom) {
+      container.scrollBy({ top: item.bottom - viewport.bottom, behavior: 'auto' })
     }
   })
 }
@@ -419,6 +582,14 @@ watch(
  * @returns 菜单展示完成后结束的 Promise
  */
 async function handleAppContextMenu(app: any, source: ContextMenuSource = 'search'): Promise<void> {
+  if (app.searchSource === 'everything') {
+    await window.ztools.showContextMenu([
+      { id: 'open-indexed:' + JSON.stringify({ path: app.path, name: app.name }), label: '打开' },
+      { id: 'reveal-in-finder:' + JSON.stringify({ path: app.path }), label: '打开所在位置' },
+      { id: 'copy-indexed-path:' + JSON.stringify({ path: app.path }), label: '复制完整路径' }
+    ])
+    return
+  }
   const menuItems: any[] = []
 
   // 只在历史记录中显示"从使用记录删除"
@@ -629,7 +800,11 @@ async function handleAppContextMenu(app: any, source: ContextMenuSource = 'searc
   await window.ztools.showContextMenu(menuItems)
 }
 
-// 选择应用
+/**
+ * 打开本机文件、程序或插件并保留现有匹配上下文。
+ * @param app 用户选中的结果。
+ * @returns 启动完成后结束的 Promise，失败信息显示在搜索窗口。
+ */
 async function handleSelectApp(app: any): Promise<void> {
   try {
     // 如果是"上次匹配"指令，执行恢复逻辑
@@ -672,7 +847,7 @@ async function handleSelectApp(app: any): Promise<void> {
     }
 
     // 启动应用或插件
-    await window.ztools.launch({
+    const result = await window.ztools.launch({
       path: app.path,
       type: app.type || 'app',
       featureCode: app.featureCode,
@@ -707,7 +882,9 @@ async function handleSelectApp(app: any): Promise<void> {
         }
       }
     })
+    if (result && result.success === false) actionError.value = result.error || '打开失败'
   } catch (error) {
+    actionError.value = error instanceof Error ? error.message : String(error)
     console.error('启动失败:', error)
   }
 }
@@ -777,8 +954,22 @@ async function handleEnterMainPushApp(group: MainPushGroup): Promise<void> {
   }
 }
 
-// 键盘导航
+/**
+ * 处理分类快捷键、结果导航和打开所在位置。
+ * @param event 主搜索窗口的键盘事件。
+ * @returns 事件处理完成后结束的 Promise。
+ */
 async function handleKeydown(event: KeyboardEvent): Promise<void> {
+  if (isUnifiedSearch.value && event.altKey && /^[1-6]$/.test(event.key)) {
+    event.preventDefault()
+    activeCategory.value = SEARCH_CATEGORIES[Number(event.key) - 1].key
+    return
+  }
+  if (event.key === 'Enter' && event.ctrlKey && selectedItem.value?.searchSource === 'everything') {
+    event.preventDefault()
+    await window.ztools.revealInFinder(selectedItem.value.path)
+    return
+  }
   const grid = navigationGrid.value
   if (!grid || grid.length === 0) return
 
@@ -832,6 +1023,18 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
  * @returns 命令处理完成后结束的 Promise
  */
 async function handleContextMenuCommand(command: string): Promise<void> {
+  if (command.startsWith('open-indexed:')) {
+    await handleSelectApp({
+      ...JSON.parse(command.slice('open-indexed:'.length)),
+      type: 'local-file',
+      searchSource: 'everything'
+    })
+    return
+  }
+  if (command.startsWith('copy-indexed-path:')) {
+    await window.ztools.copyToClipboard(JSON.parse(command.slice('copy-indexed-path:'.length)).path)
+    return
+  }
   if (command.startsWith('remove-from-history:')) {
     const jsonStr = command.replace('remove-from-history:', '')
     try {
@@ -1096,8 +1299,36 @@ defineExpose({
 </script>
 
 <style scoped>
-.scrollable-content {
+.search-home-status {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 12px;
+  font-size: 12px;
+  opacity: 0.75;
+  flex: 0 0 auto;
+}
+.search-home-status button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+.search-settings-entry {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.search-results-container {
+  display: flex;
+  flex-direction: column;
   max-height: 541px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.scrollable-content {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   user-select: none;
@@ -1108,5 +1339,63 @@ defineExpose({
 .list-mode-results {
   display: flex;
   flex-direction: column;
+}
+.search-categories {
+  display: flex;
+  gap: 6px;
+  padding: 5px 10px 9px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--divider-color);
+  user-select: none;
+}
+.search-categories button,
+.search-status button {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.search-categories button[aria-selected='true'] {
+  color: var(--highlight-color);
+  background: var(--primary-light-bg);
+  font-weight: 600;
+}
+.search-categories button:hover,
+.search-status button:hover {
+  background: var(--hover-bg);
+}
+.indexed-results {
+  padding: 4px 10px;
+}
+.indexed-heading {
+  padding: 5px 2px 8px;
+  color: var(--text-color);
+  font-size: 14px;
+  font-weight: 600;
+}
+.indexed-heading span {
+  margin-left: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+}
+.search-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.search-status:empty {
+  display: none;
+}
+.search-error {
+  color: var(--text-color);
 }
 </style>

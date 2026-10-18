@@ -1,0 +1,244 @@
+:root {
+  font:
+    14px 'Segoe UI',
+    'Microsoft YaHei',
+    sans-serif;
+  color: #24413a;
+  background: #f6f9f8;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 26px 30px;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+header img {
+  width: 48px;
+  height: 48px;
+}
+h1 {
+  font-size: 23px;
+  margin: 0 0 5px;
+}
+p {
+  margin: 0;
+  color: #678177;
+  line-height: 1.7;
+}
+.badge {
+  margin-left: auto;
+  background: #e0eee8;
+  color: #0b816a;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+.options {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+select {
+  max-width: 210px;
+  border: 1px solid #cadad4;
+  border-radius: 6px;
+  background: white;
+  padding: 5px;
+  color: inherit;
+}
+input {
+  accent-color: #078473;
+}
+main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid #cbded5;
+  border-radius: 12px;
+  color: inherit;
+  background: white;
+}
+main button {
+  text-align: left;
+  padding: 21px 20px;
+  min-height: 102px;
+  transition:
+    background 0.12s,
+    border 0.12s;
+}
+main button:hover {
+  background: #e5f5ed;
+  border-color: #0a9278;
+}
+strong {
+  display: block;
+  font-size: 17px;
+  margin-bottom: 9px;
+}
+main span {
+  font-size: 12px;
+  color: #688277;
+}
+#status {
+  height: 26px;
+  color: #bb482e;
+  margin-top: 10px;
+}
+footer {
+  border-top: 1px solid #e0eae5;
+  padding-top: 15px;
+  font-size: 12px;
+}
+footer button {
+  font-size: 12px;
+  padding: 6px 12px;
+  margin: 12px 10px 0 0;
+}
+footer span {
+  color: #688277;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    background: #18221f;
+    color: #dbece4;
+  }
+  p,
+  main span,
+  footer span {
+    color: #9db4a9;
+  }
+  button,
+  select {
+    background: #23322b;
+    color: #dbece4;
+    border-color: #486055;
+  }
+  main button:hover {
+    background: #274e3d;
+  }
+  footer {
+    border-color: #3c5147;
+  }
+  .badge {
+    background: #28503e;
+    color: #8cdbb9;
+  }
+}
+
+.quick-entry {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid #b9d6ca;
+  border-radius: 12px;
+  background: #edf6f1;
+}
+.quick-entry p {
+  font-size: 12px;
+}
+.quick-heading,
+.shortcut-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.quick-heading {
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.quick-heading strong {
+  font-size: 16px;
+  margin: 0;
+}
+.quick-heading button,
+.shortcut-summary button {
+  padding: 5px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.quick-heading button {
+  background: #078473;
+  color: white;
+  border-color: #078473;
+}
+.quick-entry > label {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.shortcut-summary {
+  margin-top: 8px;
+}
+.shortcut-summary p {
+  flex: 1;
+  min-width: 0;
+}
+.options {
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+header {
+  margin-bottom: 18px;
+}
+main button,
+.scroll-tip {
+  min-height: 84px;
+  padding: 14px 16px;
+}
+main strong {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.scroll-tip {
+  border: 1px dashed #cbded5;
+  border-radius: 12px;
+}
+#status {
+  height: auto;
+  min-height: 26px;
+  font-size: 12px;
+}
+button:focus-visible,
+select:focus-visible {
+  outline: 2px solid #078473;
+  outline-offset: 2px;
+}
+@media (prefers-color-scheme: dark) {
+  .quick-entry {
+    background: #20372b;
+    border-color: #486055;
+  }
+  .scroll-tip {
+    border-color: #486055;
+  }
+}
+@media (max-width: 620px) {
+  body {
+    padding: 18px;
+  }
+  main {
+    grid-template-columns: 1fr;
+  }
+  .badge {
+    display: none;
+  }
+  .shortcut-summary {
+    align-items: flex-start;
+  }
+}

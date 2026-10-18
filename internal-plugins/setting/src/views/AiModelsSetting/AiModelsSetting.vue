@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ZTOOLS_ECOSYSTEM_ENABLED } from '@shared/ecosystemPolicy'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useToast } from '@/components'
 import { ACCOUNT_CHANGED_EVENT } from '@/composables/useZToolsAccount'
@@ -63,10 +64,14 @@ async function loadProviders(): Promise<void> {
 }
 
 /**
- * 从主进程刷新官方模型及当前账号登录状态。
+ * 根据产品策略清空旧官方模型展示，不访问上游账号服务。
  * @returns 官方模型状态刷新完成后结束的 Promise
  */
 async function loadOfficialProvider(): Promise<void> {
+  if (!ZTOOLS_ECOSYSTEM_ENABLED) {
+    officialProvider.value = null
+    return
+  }
   const requestId = ++officialProviderRequestId
   try {
     const result = await window.ztools.internal.aiProviders.getOfficial()

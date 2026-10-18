@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import { execFile } from 'child_process'
 import type { PluginManager } from '../../managers/pluginManager'
 import { promises as fs } from 'fs'
@@ -604,7 +604,7 @@ export class AppsAPI {
    */
   public async launch(options: {
     path: string
-    type?: 'direct' | 'plugin' | 'builtin' | 'file'
+    type?: 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
     featureCode?: string
     param?: any
     name?: string // cmd 名称（用于历史记录显示）
@@ -734,7 +734,15 @@ export class AppsAPI {
           ? localShortcuts.find((shortcut: any) => shortcut.path === appPath)
           : undefined
 
-        if (localShortcut && !(process.platform === 'win32' && localShortcut.type === 'app')) {
+        if (type === 'local-file') {
+          // 索引结果是路径而不是命令；交由系统关联打开，不拼接 shell 命令。
+          if (!path.isAbsolute(appPath)) throw new Error('本机搜索结果必须是绝对路径')
+          const error = await shell.openPath(appPath)
+          if (error) throw new Error('打开失败: ' + error)
+        } else if (
+          localShortcut &&
+          !(process.platform === 'win32' && localShortcut.type === 'app')
+        ) {
           const result = await shell.openPath(appPath)
           if (result) {
             console.error('[Commands] 打开本地启动项失败:', result)
@@ -819,11 +827,13 @@ export class AppsAPI {
   }
 
   /**
-   * 添加到历史记录
+   * 保存应用、插件和索引文件的最近使用记录。
+   * @param options 已启动目标的路径、类型和上下文。
+   * @returns 历史记录保存及事件通知完成后的 Promise。
    */
   private async addToHistory(options: {
     path: string
-    type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file'
+    type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
     featureCode?: string
     param?: any
     name?: string // cmd 名称（用于历史记录显示）
@@ -896,6 +906,29 @@ export class AppsAPI {
             console.error('[Commands] 读取插件配置失败:', error)
             return
           }
+        }
+      } else if (type === 'local-file') {
+        // 索引结果不要求预先注册为启动项，仍可加入最近使用。
+        const directory = await fs
+          .stat(appPath)
+          .then((stat) => stat.isDirectory())
+          .catch(() => false)
+        const category = directory
+          ? 'folder'
+          : /\.(exe|lnk|appref-ms)$/i.test(appPath)
+            ? 'app'
+            : 'file'
+        const icon = await app
+          .getFileIcon(appPath, { size: 'small' })
+          .then((image) => image.toDataURL())
+          .catch(() => '')
+        appInfo = {
+          name: cmdName || path.basename(appPath),
+          path: appPath,
+          type,
+          category,
+          icon,
+          cmdType: 'text'
         }
       } else {
         // 从系统应用列表中查找

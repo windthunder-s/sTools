@@ -7,6 +7,7 @@ import databaseAPI from './shared/database.js'
 import windowManager from '../managers/windowManager'
 import { applyWindowMaterial, getDefaultWindowMaterial } from '../utils/windowUtils.js'
 import { isInAppUpdateSource } from '../../shared/updateSource'
+import { APP_UPDATES_ENABLED, MANUAL_UPDATE_MESSAGE } from '../../shared/productPolicy'
 import {
   fetchLatestServerUpdate,
   resolvePlatformUpdateInfo,
@@ -105,6 +106,11 @@ export class UpdaterAPI {
    * @returns 无返回值
    */
   public setAutoCheck(enabled: boolean): void {
+    // 分支版本禁止通过旧设置重新启用上游更新。
+    if (!APP_UPDATES_ENABLED) {
+      this.sendUpdateEvent('auto-check-update-changed', false)
+      return
+    }
     // 更新检查由活动心跳统一调度，开关只控制是否展示自动提示。
     this.sendUpdateEvent('auto-check-update-changed', enabled)
     if (enabled) void this.checkUpdate()
@@ -116,6 +122,8 @@ export class UpdaterAPI {
    * @returns 更新信息处理完成后的 Promise。
    */
   public async handleHeartbeatUpdate(update: ServerUpdateInfo | null): Promise<void> {
+    // 忽略共享服务心跳中携带的上游版本，避免将 ZTools 当作 sTools 更新。
+    if (!APP_UPDATES_ENABLED) return
     if (!update?.available || update.latestVersion === this.lastAutoNotifiedVersion) return
     const settings = databaseAPI.dbGet('settings-general')
     if (settings?.autoCheckUpdate === false) return
@@ -155,6 +163,7 @@ export class UpdaterAPI {
     error?: string
   }> {
     // 任何安装入口都不得在未打包运行时替换开发中的应用。
+    if (!APP_UPDATES_ENABLED) return { success: false, error: MANUAL_UPDATE_MESSAGE }
     if (!app.isPackaged) return this.rejectDevelopmentUpdate()
 
     await this.initializationPromise
@@ -166,9 +175,22 @@ export class UpdaterAPI {
     this.platformUpdater?.cleanup()
   }
 
+  /**
+   * 根据产品更新策略检查版本；sTools 禁用时不访问上游更新服务。
+   * @returns 版本检查或手动更新状态。
+   */
   public async checkUpdate(): Promise<
     Awaited<ReturnType<PlatformUpdaterService['checkForUpdates']>>
   > {
+    // 在发起任何网络请求之前处理分支的独立更新策略。
+    if (!APP_UPDATES_ENABLED) {
+      return {
+        success: true,
+        status: 'disabled',
+        hasUpdate: false,
+        currentVersion: app.getVersion()
+      }
+    }
     try {
       const update = await fetchLatestServerUpdate()
       if (!update?.available) {
@@ -212,6 +234,8 @@ export class UpdaterAPI {
     migrationRequired?: boolean
     error?: string
   }> {
+    // 包括外部下载渠道在内的入口都必须服从产品更新策略。
+    if (!APP_UPDATES_ENABLED) return { success: false, error: MANUAL_UPDATE_MESSAGE }
     const updateInfo = this.availableUpdateInfo ?? this.downloadedUpdateInfo
     if (!updateInfo) return { success: false, error: '没有可用的更新' }
 
@@ -269,6 +293,8 @@ export class UpdaterAPI {
   private async openDownloadSource(
     sourceID: number
   ): Promise<{ success: boolean; error?: string }> {
+    // 禁止从保留的上游接口跳转到 ZTools 安装包。
+    if (!APP_UPDATES_ENABLED) return { success: false, error: MANUAL_UPDATE_MESSAGE }
     const info = this.availableUpdateInfo ?? this.downloadedUpdateInfo
     const source = info?.sources?.find((item) => item.id === sourceID)
     if (!source) return { success: false, error: '下载地址不存在' }

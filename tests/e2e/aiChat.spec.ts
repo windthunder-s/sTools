@@ -591,9 +591,9 @@ test('第三方插件通过宿主 aiChat 流式调用且自行管理工具循环
             Boolean(entry[1])
           )
         ),
-        ZTOOLS_DATA_ROOT: dataRoot,
+        STOOLS_DATA_ROOT: dataRoot,
         ZTOOLS_E2E: '1',
-        ZTOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
+        STOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
         ZTOOLS_SETTING_DEV_SERVER_URL: settingsUrlFragment
       }
     })

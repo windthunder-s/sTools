@@ -1,3 +1,7 @@
+import {
+  ZTOOLS_ECOSYSTEM_ENABLED,
+  ECOSYSTEM_REMOVED_MESSAGE
+} from '../../../shared/ecosystemPolicy'
 import { app } from 'electron'
 import type { PluginManager } from '../../managers/pluginManager'
 import pluginDeviceAPI from './device'
@@ -40,12 +44,12 @@ export class PluginUserAPI {
   }
 
   /**
-   * 将当前用户公开资料写入同步 IPC 返回值。
+   * 当前产品返回空用户，避免向插件暴露旧生态账号资料。
    * @param event 插件发起的同步 IPC 事件。
    * @returns 无返回值。
    */
   private handleGetUser(event: Electron.IpcMainEvent): void {
-    event.returnValue = getCurrentUserInfo()
+    event.returnValue = ZTOOLS_ECOSYSTEM_ENABLED ? getCurrentUserInfo() : null
   }
 
   /**
@@ -57,6 +61,7 @@ export class PluginUserAPI {
   private async handleGetUserTempToken(
     event: Electron.IpcMainInvokeEvent
   ): Promise<PluginTemporaryToken> {
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) throw new Error(ECOSYSTEM_REMOVED_MESSAGE)
     const pluginId = this.pluginManager?.getPluginManifestNameByWebContents(event.sender)
     if (!pluginId) throw new Error('无法确认当前插件身份')
 

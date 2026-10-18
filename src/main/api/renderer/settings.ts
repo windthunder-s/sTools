@@ -1,3 +1,4 @@
+import { normalizeShortcut, reservedShortcut } from '../../../shared/shortcutConflict'
 import { app, globalShortcut, ipcMain, nativeTheme } from 'electron'
 import fs from 'fs'
 import type { PluginManager } from '../../managers/pluginManager'
@@ -72,6 +73,112 @@ export class SettingsAPI {
     string,
     { autoCopy: boolean; preScreenshotOptimization: boolean }
   > = new Map()
+  private appShortcutTargets = new Map<string, string>()
+  private pendingShortcuts = new Set<string>()
+
+  /**
+   * 检查呼出键、内置操作及两个作用范围的已保存和运行中绑定。
+   * @param shortcut 要注册的组合键。
+   * @param scope 注册入口。
+   * @param target 插件指令。
+   * @param replaceTarget 编辑同一组合键时明确替换的旧指令。
+   * @returns 冲突说明，没有冲突时为空。
+   */
+  private shortcutConflict(
+    shortcut: string,
+    scope: 'main' | 'global' | 'app',
+    target = '',
+    replaceTarget?: string
+  ): string | undefined {
+    if (typeof shortcut !== 'string' || !shortcut.trim()) return '请先设置快捷键'
+    const key = normalizeShortcut(shortcut, process.platform)
+    if (this.pendingShortcuts.has(key)) return '该快捷键正在保存，请稍后重试'
+    const reserved = reservedShortcut(
+      shortcut,
+      process.platform,
+      databaseAPI.dbGet('settings-general')
+    )
+    if (reserved) return `此快捷键已用于「${reserved}」，请换一个组合键。`
+    if (scope !== 'main' && key === normalizeShortcut(getCurrentShortcut() || '', process.platform))
+      return '此快捷键用于唤起 sTools，请换一个组合键。'
+    for (const source of ['global', 'app'] as const) {
+      const runtime = source === 'global' ? this.globalShortcutTargets : this.appShortcutTargets
+      const stored = databaseAPI.dbGet(`${source}-shortcuts`)
+      const entries = [...runtime.entries()].map(([shortcut, target]) => ({ shortcut, target }))
+      if (Array.isArray(stored))
+        entries.push(
+          ...stored.filter(
+            (item) => typeof item?.shortcut === 'string' && typeof item?.target === 'string'
+          )
+        )
+      for (const item of entries) {
+        if (normalizeShortcut(item.shortcut, process.platform) !== key) continue
+        if (source === scope && (item.target === target || item.target === replaceTarget)) continue
+        return `此快捷键已用于「${item.target.split('/').pop()}」，请换一个组合键。`
+      }
+    }
+    return undefined
+  }
+
+  /**
+   * 在异步准备前保留组合键，禁止覆盖其它指令；同键修改失败时恢复原注册。
+   * @param shortcut 新组合键。
+   * @param target 新指令。
+   * @param autoCopy 是否复制选中内容。
+   * @param preScreenshotOptimization 是否使用原生截图优化。
+   * @param replaceTarget 明确替换的旧指令，仅用于同键编辑。
+   * @returns 注册结果及可展示的冲突说明。
+   */
+  public async registerGlobalShortcut(
+    shortcut: string,
+    target: string,
+    autoCopy = false,
+    preScreenshotOptimization = false,
+    replaceTarget?: string
+  ): Promise<{ success: boolean; error?: string; degraded?: boolean }> {
+    const conflict = this.shortcutConflict(shortcut, 'global', target, replaceTarget)
+    if (conflict) return { success: false, error: conflict }
+    const key = normalizeShortcut(shortcut, process.platform)
+    const owned = [...this.globalShortcutTargets.keys()].find(
+      (item) => normalizeShortcut(item, process.platform) === key
+    )
+    if (owned) shortcut = owned
+    // 不释放未归本模块所有的 Electron 注册（包括主窗口和录制中的临时键）。
+    if (!owned && !this.isDoubleTapShortcut(shortcut) && globalShortcut.isRegistered(shortcut))
+      return { success: false, error: '此快捷键已被 sTools 的其它操作占用，请换一个组合键。' }
+    this.pendingShortcuts.add(key)
+    const oldTarget = owned && this.globalShortcutTargets.get(owned)
+    const oldConfig = owned && this.globalShortcutConfigs.get(owned)
+    try {
+      // 原生键盘钩子不检查系统注册；先用系统快捷键 API 验证可用性。
+      if (!owned && this.shouldUseNativeOptimizedShortcut(shortcut, preScreenshotOptimization)) {
+        if (!globalShortcut.register(shortcut, () => {}))
+          return { success: false, error: '快捷键已被其它应用占用，请换一个组合键。' }
+        globalShortcut.unregister(shortcut)
+      }
+      const result = await this.applyGlobalShortcut(
+        shortcut,
+        target,
+        autoCopy,
+        preScreenshotOptimization
+      )
+      if (!result.success && oldTarget && oldConfig) {
+        const restored = await this.applyGlobalShortcut(
+          shortcut,
+          oldTarget,
+          oldConfig.autoCopy,
+          oldConfig.preScreenshotOptimization
+        )
+        if (!restored.success) result.error += '（原快捷键未能恢复，请重新设置）'
+      }
+      return result
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : '快捷键注册失败' }
+    } finally {
+      this.pendingShortcuts.delete(key)
+    }
+  }
+
   private globalShortcutTargets = new Map<string, string>()
   private globalShortcutPreparations = new Map<string, GlobalShortcutPreparation>()
   private nativeOptimizedShortcutSet = new Set<string>()
@@ -230,13 +337,15 @@ export class SettingsAPI {
         shortcut: string,
         target: string,
         autoCopy?: boolean,
-        preScreenshotOptimization?: boolean
+        preScreenshotOptimization?: boolean,
+        replaceTarget?: string
       ) =>
         this.registerGlobalShortcut(
           shortcut,
           target,
           autoCopy ?? false,
-          preScreenshotOptimization ?? false
+          preScreenshotOptimization ?? false,
+          replaceTarget
         )
     )
     ipcMain.handle('unregister-global-shortcut', (_event, shortcut: string) =>
@@ -252,8 +361,10 @@ export class SettingsAPI {
     )
 
     // 应用快捷键
-    ipcMain.handle('register-app-shortcut', (_event, shortcut: string, target: string) =>
-      this.registerAppShortcut(shortcut, target)
+    ipcMain.handle(
+      'register-app-shortcut',
+      (_event, shortcut: string, target: string, replaceTarget?: string) =>
+        this.registerAppShortcut(shortcut, target, replaceTarget)
     )
     ipcMain.handle('unregister-app-shortcut', (_event, shortcut: string) =>
       this.unregisterAppShortcut(shortcut)
@@ -335,8 +446,96 @@ export class SettingsAPI {
       await this.loadAndRegisterGlobalShortcuts()
       // 加载并注册应用快捷键
       await this.loadAndRegisterAppShortcuts()
+      // 快速入口默认键只初始化一次，后续统一由快捷键管理维护。
+      await this.initializeCaptureQuickShortcut()
     } catch (error) {
       console.error('[Settings] 加载设置失败:', error)
+    }
+  }
+
+  /**
+   * 首次安装快速入口时尝试 F1，保留已有绑定，并记住移除或失败后的用户选择。
+   * @returns 一次性快捷键初始化结束的 Promise。
+   */
+  private async initializeCaptureQuickShortcut(): Promise<void> {
+    if (process.env.ZTOOLS_E2E === '1') return
+    const stateKey = 'capture-quick-shortcut-initialized'
+    if (databaseAPI.dbGet(stateKey)) return
+    const initialGlobal = databaseAPI.dbGet('global-shortcuts')
+    const initialApp = databaseAPI.dbGet('app-shortcuts')
+    const shortcut = 'F1'
+    const target = 'capture-tools/快速截图'
+    let registered = false
+    let persisted = false
+    /**
+     * 保存一次性初始化状态，确保用户删除绑定后不会在重启时自动恢复。
+     * @param status 初始化阶段。
+     * @param error 可展示的失败原因。
+     * @returns 无返回值。
+     * @throws 状态无法持久化时抛出错误，阻止建立不受管理的快捷键。
+     */
+    const saveState = (status: string, error?: string): void => {
+      const result = databaseAPI.dbPut(stateKey, { version: 1, status, shortcut, target, error })
+      if (result?.ok !== true) throw new Error('快速入口初始化状态未能保存。')
+    }
+    try {
+      // 先记录尝试，再进入异步注册，避免重入或重启后覆盖用户决定。
+      saveState('pending')
+      if (
+        (initialGlobal != null && !Array.isArray(initialGlobal)) ||
+        (initialApp != null && !Array.isArray(initialApp))
+      )
+        throw new Error('快捷键配置读取异常，请先在快捷键管理中检查。')
+      const globalKeys = initialGlobal || []
+      const appKeys = initialApp || []
+      const targets = [...globalKeys, ...appKeys].map((item) => item?.target)
+      targets.push(...this.globalShortcutTargets.values(), ...this.appShortcutTargets.values())
+      if (
+        targets.some(
+          (value) =>
+            typeof value === 'string' &&
+            ['capture-tools', '截图与录屏'].includes(value.split('/')[0].trim())
+        )
+      ) {
+        saveState('preserved')
+        return
+      }
+      // 复用中央冲突检查与系统注册；绝不在插件中另设 F1 监听。
+      const result = await this.registerGlobalShortcut(shortcut, target, false, false)
+      if (!result.success) throw new Error(result.error || 'F1 已被其它软件占用。')
+      registered = true
+      // 异步准备期间若设置发生变化则撤回本次默认绑定，不覆盖新的用户数据。
+      if (
+        JSON.stringify(databaseAPI.dbGet('global-shortcuts')) !== JSON.stringify(initialGlobal) ||
+        JSON.stringify(databaseAPI.dbGet('app-shortcuts')) !== JSON.stringify(initialApp)
+      )
+        throw new Error('快捷键配置已变化，请在快捷键管理中手动设置。')
+      const saved = databaseAPI.dbPut('global-shortcuts', [
+        ...globalKeys,
+        {
+          id: 'stools-capture-quick-default',
+          shortcut,
+          target,
+          enabled: true,
+          autoCopy: false,
+          preScreenshotOptimization: false
+        }
+      ])
+      if (saved?.ok !== true) throw new Error('F1 快捷键未能保存，请在快捷键管理中重试。')
+      persisted = true
+      saveState('registered')
+    } catch (error) {
+      // 只有成功保存的绑定才保留运行时注册，避免出现管理页看不到的 F1。
+      if (registered && !persisted) this.unregisterGlobalShortcut(shortcut)
+      const message = error instanceof Error ? error.message : 'F1 初始化失败。'
+      console.warn('[Settings] 快速入口初始化:', message)
+      if (!persisted) {
+        try {
+          saveState('failed', message)
+        } catch (saveError) {
+          console.warn('[Settings] 快速入口状态无法保存:', saveError)
+        }
+      }
     }
   }
 
@@ -406,9 +605,15 @@ export class SettingsAPI {
     return settings.openAtLogin
   }
 
-  // 更新快捷键
+  /**
+   * 修改主窗口呼出键前检查所有插件及内置操作。
+   * @param shortcut 新的呼出键。
+   * @returns 是否成功及冲突说明。
+   */
   public updateShortcut(shortcut: string): { success: boolean; error?: string } {
     try {
+      const conflict = this.shortcutConflict(shortcut, 'main')
+      if (conflict) return { success: false, error: conflict }
       const success = updateShortcut(shortcut)
       if (success) {
         return { success: true }
@@ -443,9 +648,14 @@ export class SettingsAPI {
 
   /**
    * 注册全局快捷键。
-   * 触发时会按需采集当前外部应用中的选中文本，再把上下文交给上层统一处理。
+   * 调用者必须已检查占用并持有该组合键的保存锁。
+   * @param shortcut 已检查的组合键。
+   * @param target 指令。
+   * @param autoCopy 是否复制选中文本。
+   * @param preScreenshotOptimization 是否使用原生优化。
+   * @returns 底层注册结果。
    */
-  public async registerGlobalShortcut(
+  private async applyGlobalShortcut(
     shortcut: string,
     target: string,
     autoCopy: boolean = false,
@@ -534,8 +744,20 @@ export class SettingsAPI {
     }
   }
 
-  // 注销全局快捷键
+  /**
+   * 仅释放本模块拥有的组合键，绝不注销主窗口或其它注册者的键。
+   * @param shortcut 待释放组合键。
+   * @returns 注销结果。
+   */
   public unregisterGlobalShortcut(shortcut: string): any {
+    const key = normalizeShortcut(shortcut, process.platform)
+    if (this.pendingShortcuts.has(key))
+      return { success: false, error: '该快捷键正在保存，请稍后重试' }
+    const owned = [...this.globalShortcutTargets.keys()].find(
+      (item) => normalizeShortcut(item, process.platform) === key
+    )
+    if (!owned) return { success: true }
+    shortcut = owned
     try {
       this.unregisterGlobalShortcutBackend(shortcut)
       this.releaseGlobalShortcutKeyboardState(shortcut)
@@ -935,10 +1157,20 @@ export class SettingsAPI {
     }
   }
 
-  // 注册应用快捷键
-  public registerAppShortcut(shortcut: string, target: string): any {
+  /**
+   * 在统一冲突检查后注册应用内指令。
+   * @param shortcut 组合键。
+   * @param target 指令。
+   * @param replaceTarget 同键编辑时允许替换的旧指令。
+   * @returns 注册结果。
+   */
+  public registerAppShortcut(shortcut: string, target: string, replaceTarget?: string): any {
     try {
+      const conflict = this.shortcutConflict(shortcut, 'app', target, replaceTarget)
+      if (conflict) return { success: false, error: conflict }
       const success = windowManager.registerAppShortcut(shortcut, target)
+      if (success)
+        this.appShortcutTargets.set(normalizeShortcut(shortcut, process.platform), target)
       if (!success) {
         return { success: false, error: '应用快捷键注册失败' }
       }
@@ -949,10 +1181,15 @@ export class SettingsAPI {
     }
   }
 
-  // 注销应用快捷键
+  /**
+   * 释放应用内指令和它的占用记录。
+   * @param shortcut 组合键。
+   * @returns 注销结果。
+   */
   public unregisterAppShortcut(shortcut: string): any {
     try {
       windowManager.unregisterAppShortcut(shortcut)
+      this.appShortcutTargets.delete(normalizeShortcut(shortcut, process.platform))
       console.log(`成功注销应用快捷键: ${shortcut}`)
       return { success: true }
     } catch (error: unknown) {

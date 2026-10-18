@@ -1106,13 +1106,29 @@ window.ztools = {
       await electron.ipcRenderer.invoke('internal:get-plugin-memory-info', pluginPath),
 
     // ==================== 全局快捷键 API ====================
-    registerGlobalShortcut: async (shortcut, target, autoCopy, preScreenshotOptimization) =>
+    /**
+     * Register a global shortcut, carrying explicit replacement intent for edits.
+     * @param shortcut New combination.
+     * @param target New command.
+     * @param autoCopy Whether to capture selected text.
+     * @param preScreenshotOptimization Whether to enable native screenshot optimization.
+     * @param replaceTarget Previous command permitted to be replaced on the same key.
+     * @returns Registration result from the trusted host.
+     */
+    registerGlobalShortcut: async (
+      shortcut,
+      target,
+      autoCopy,
+      preScreenshotOptimization,
+      replaceTarget
+    ) =>
       await electron.ipcRenderer.invoke(
         'internal:register-global-shortcut',
         shortcut,
         target,
         autoCopy,
-        preScreenshotOptimization
+        preScreenshotOptimization,
+        replaceTarget
       ),
     unregisterGlobalShortcut: async (shortcut) =>
       await electron.ipcRenderer.invoke('internal:unregister-global-shortcut', shortcut),
@@ -1132,8 +1148,20 @@ window.ztools = {
     },
 
     // ==================== 应用快捷键 API ====================
-    registerAppShortcut: async (shortcut, target) =>
-      await electron.ipcRenderer.invoke('internal:register-app-shortcut', shortcut, target),
+    /**
+     * Register a local shortcut without losing explicit same-key edit intent.
+     * @param shortcut New combination.
+     * @param target New command.
+     * @param replaceTarget Previous command being replaced.
+     * @returns Registration result from the trusted host.
+     */
+    registerAppShortcut: async (shortcut, target, replaceTarget) =>
+      await electron.ipcRenderer.invoke(
+        'internal:register-app-shortcut',
+        shortcut,
+        target,
+        replaceTarget
+      ),
     unregisterAppShortcut: async (shortcut) =>
       await electron.ipcRenderer.invoke('internal:unregister-app-shortcut', shortcut),
 

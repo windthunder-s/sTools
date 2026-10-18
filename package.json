@@ -1,17 +1,9 @@
 {
-  "name": "ZTools",
-  "version": "3.2.0",
-  "description": "ZTools",
+  "name": "stools",
+  "version": "0.6.0",
+  "description": "sTools — based on ZTools, with unified plugin shortcuts",
   "main": "./out/main/index.js",
-  "author": "ZToolsCenter",
-  "homepage": "https://github.com/ZToolsCenter/ZTools",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ZToolsCenter/ZTools.git"
-  },
-  "bugs": {
-    "url": "https://github.com/ZToolsCenter/ZTools/issues"
-  },
+  "author": "sTools contributors; based on ZTools by lzx8589561 and contributors",
   "license": "MIT",
   "scripts": {
     "format": "prettier --write .",
@@ -25,7 +17,7 @@
     "dev": "concurrently -n \"main,setting\" -c \"blue,green\" \"pnpm dev:main\" \"pnpm dev:setting\"",
     "kill": "pkill -9 Electron",
     "dev:clean": "pnpm kill && pnpm dev",
-    "build": "pnpm typecheck && pnpm build:setting && electron-vite build",
+    "build": "pnpm build:search-native && pnpm typecheck && pnpm build:setting && electron-vite build",
     "build:setting": "cd internal-plugins/setting && pnpm build",
     "build:unpack": "pnpm build && electron-builder --dir",
     "build:win": "cross-env ZTOOLS_TARGET_PLATFORM=win32 pnpm build && electron-builder --win --publish never",
@@ -38,14 +30,15 @@
     "build:linux:arm64": "cross-env ZTOOLS_TARGET_PLATFORM=linux pnpm build && electron-builder --linux --arm64",
     "updater": "node scripts/updater.mjs",
     "test": "vitest run",
-    "test:e2e": "pnpm exec electron-vite build && playwright test --config=playwright.e2e.config.ts",
+    "test:e2e": "pnpm build:search-native && pnpm exec electron-vite build && playwright test --config=playwright.e2e.config.ts",
     "test:windows-scanner": "electron scripts/compare-windows-scanner.cjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "sync-api-types": "node scripts/sync-api-types.js",
     "check-api-types": "node -p \"require('./ztools-api-types/package.json')['utools-version']\"",
     "hooks:install": "git config core.hooksPath .githooks",
-    "postinstall": "pnpm run hooks:install || true"
+    "postinstall": "pnpm run hooks:install || true",
+    "build:search-native": "node scripts/build-search-native.cjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -113,5 +106,7 @@
       "msgpackr-extract",
       "uiohook-napi"
     ]
-  }
+  },
+  "productName": "sTools",
+  "packageManager": "pnpm@9.15.9"
 }

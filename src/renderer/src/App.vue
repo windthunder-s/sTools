@@ -316,7 +316,7 @@ function launchTabTarget(target: string, text: string): void {
 
   if (!matchedCommand) {
     console.warn('[Tab Target] 未找到目标指令:', target)
-    new Notification('ZTools', {
+    new Notification('sTools', {
       body: `未找到 Tab 键目标指令「${target}」，请检查设置中的指令名称是否正确`
     })
     return
@@ -405,6 +405,8 @@ watch(currentView, (newView) => {
  * @returns 操作完成后的 Promise。
  */
 async function handleKeydown(event: KeyboardEvent): Promise<void> {
+  // 搜索设置自行管理键盘，避免 Enter 或 Escape 触发底层搜索操作。
+  if (document.querySelector('.file-search-settings')) return
   // 如果正在输入法组合中,忽略所有键盘事件
   if (isComposing.value) {
     return
@@ -554,11 +556,7 @@ async function handleKeydown(event: KeyboardEvent): Promise<void> {
 onMounted(async () => {
   syncLaunchContext()
 
-  // 从 store 加载设置和应用数据
-  await Promise.all([
-    windowStore.loadSettings(),
-    commandDataStore.initializeData() // 初始化应用历史记录和固定列表
-  ])
+  // 先注册键盘和插件生命周期事件，应用扫描耗时不能阻塞已显示结果的交互。
 
   // 初始调整窗口高度
   updateWindowHeight()
@@ -978,9 +976,6 @@ onMounted(async () => {
     console.error('更新下载失败:', data)
   })
 
-  // 恢复已检测到的更新状态
-  windowStore.checkUpdateStatus()
-
   // 监听超级面板搜索请求（主进程转发，携带剪贴板内容）
   window.ztools.onSuperPanelSearch((data: { text: string; clipboardContent?: any }) => {
     console.log(
@@ -1133,6 +1128,11 @@ onMounted(async () => {
 
   // 全局键盘事件监听
   window.addEventListener('keydown', handleKeydown)
+
+  // 所有事件就绪后再加载设置和应用，避免扫描完成前丢失快捷键或插件打开通知。
+  await Promise.all([windowStore.loadSettings(), commandDataStore.initializeData()])
+  if (currentView.value === ViewMode.Search) updateWindowHeight()
+  windowStore.checkUpdateStatus()
 })
 
 // 清理

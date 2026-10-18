@@ -25,9 +25,9 @@ test('可以启动主窗口、打开内置设置插件并截图', async ({}, tes
             Boolean(entry[1])
           )
         ),
-        ZTOOLS_DATA_ROOT: dataRoot,
+        STOOLS_DATA_ROOT: dataRoot,
         ZTOOLS_E2E: '1',
-        ZTOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
+        STOOLS_LEGACY_USER_DATA_PATH: legacyRoot,
         ZTOOLS_SETTING_DEV_SERVER_URL: 'http://127.0.0.1:15177'
       }
     })
@@ -37,10 +37,14 @@ test('可以启动主窗口、打开内置设置插件并截图', async ({}, tes
 
     // 等待 Vue 完成挂载，并确认测试模式确实展示了主窗口。
     await expect(searchInput).toBeVisible()
-    const isVisible = await electronApp.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows().some((window) => window.isVisible())
-    )
-    expect(isVisible).toBe(true)
+    // DOM 挂载可能早于 ready-to-show，等待真实窗口展示而非读取单次快照。
+    await expect
+      .poll(() =>
+        electronApp!.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows().some((window) => window.isVisible())
+        )
+      )
+      .toBe(true)
 
     // 通过 Playwright Locator 驱动真实输入事件并校验渲染状态。
     await searchInput.fill('ZTools E2E 可行性验证')

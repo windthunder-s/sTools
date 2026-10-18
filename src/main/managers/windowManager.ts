@@ -1,3 +1,4 @@
+import { normalizeShortcut } from '../../shared/shortcutConflict'
 import { is, platform } from '@electron-toolkit/utils'
 import {
   app,
@@ -65,7 +66,7 @@ class WindowManager {
   private mainWindow: BrowserWindow | null = null
   private tray: Tray | null = null
   private trayMenu: Menu | null = null // 托盘菜单
-  private currentShortcut = 'Option+Z' // 当前注册的快捷键
+  private currentShortcut = 'Control+Alt+Space' // 当前注册的快捷键
   private isDoubleTapMode = false // 当前呼出快捷键是否为双击修饰键模式
   private static readonly MODIFIER_NAMES = ['Command', 'Ctrl', 'Alt', 'Option', 'Shift']
   private isQuitting = false // 是否正在退出应用
@@ -364,7 +365,7 @@ class WindowManager {
     // 根据平台设置不同的窗口配置
     const windowConfig: Electron.BrowserWindowConstructorOptions = {
       type: 'panel',
-      title: 'ZTools',
+      title: 'sTools',
       width: WINDOW_WIDTH,
       height: initialHeight,
       alwaysOnTop: true,
@@ -462,7 +463,7 @@ class WindowManager {
         }
 
         const shortcut = this.buildShortcutString(input)
-        const target = this.appShortcuts.get(shortcut)
+        const target = this.appShortcuts.get(normalizeShortcut(shortcut, process.platform))
         if (target) {
           console.log(`应用快捷键触发: ${shortcut} -> ${target}`)
           event.preventDefault()
@@ -627,7 +628,7 @@ class WindowManager {
     this.tray = new Tray(icon)
 
     // 设置托盘提示文字
-    this.tray.setToolTip('ZTools')
+    this.tray.setToolTip('sTools')
 
     // 创建右键菜单
     this.createTrayMenu()
@@ -729,61 +730,41 @@ class WindowManager {
   }
 
   /**
-   * 注册全局快捷键（支持双击修饰键）
+   * 先注册新呼出键，成功后才释放旧键；无效组合或外部占用不会破坏旧入口。
+   * @param shortcut 新呼出键，缺省时使用当前配置。
+   * @returns 是否注册成功。
    */
   public registerShortcut(shortcut?: string): boolean {
-    const keyToRegister = shortcut || this.currentShortcut
-
-    // 保存旧的快捷键信息，用于注册失败时回滚
-    const oldShortcut = this.currentShortcut
-    const oldIsDoubleTapMode = this.isDoubleTapMode
-
-    // 注销旧的呼出快捷键（仅注销当前快捷键，不影响其他全局快捷键）
-    if (this.isDoubleTapMode) {
-      const oldModifier = this.currentShortcut.split('+')[0]
-      doubleTapManager.unregister(oldModifier)
-    } else {
-      globalShortcut.unregister(this.currentShortcut)
-    }
-
-    // 双击修饰键模式：通过 doubleTapManager 注册
-    if (this.isDoubleTapShortcut(keyToRegister)) {
-      const modifier = keyToRegister.split('+')[0]
-      doubleTapManager.register(modifier, () => {
-        if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindowFromDoubleTap()
-      })
-      this.currentShortcut = keyToRegister
-      this.isDoubleTapMode = true
-      console.log(`双击修饰键呼出快捷键 ${keyToRegister} 注册成功`)
+    const next = shortcut || this.currentShortcut
+    const same =
+      normalizeShortcut(next, process.platform) ===
+      normalizeShortcut(this.currentShortcut, process.platform)
+    if (same && (this.isDoubleTapMode || globalShortcut.isRegistered(this.currentShortcut)))
       return true
-    }
-
-    // 普通快捷键模式：通过 globalShortcut 注册
-    const ret = globalShortcut.register(keyToRegister, () => {
-      if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindow()
-    })
-
-    if (!ret) {
-      console.error(`快捷键注册失败: ${keyToRegister} 已被占用，回滚到旧快捷键: ${oldShortcut}`)
-      // 注册失败，回滚：重新注册旧的快捷键
-      if (oldIsDoubleTapMode) {
-        const oldModifier = oldShortcut.split('+')[0]
-        doubleTapManager.register(oldModifier, () => {
+    const doubleTap = this.isDoubleTapShortcut(next)
+    try {
+      // 在新注册成功之前保留旧回调，避免注册异常后失去主窗口入口。
+      if (doubleTap)
+        doubleTapManager.register(next.split('+')[0], () => {
           if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindowFromDoubleTap()
         })
-      } else {
-        globalShortcut.register(oldShortcut, () => {
+      else if (
+        !globalShortcut.register(next, () => {
           if (!dndManager.shouldIgnoreHotkeys()) this.toggleWindow()
         })
+      )
+        return false
+      if (!same) {
+        if (this.isDoubleTapMode) doubleTapManager.unregister(this.currentShortcut.split('+')[0])
+        else globalShortcut.unregister(this.currentShortcut)
       }
+      this.currentShortcut = next
+      this.isDoubleTapMode = doubleTap
+      return true
+    } catch (error) {
+      console.error('[Window] 呼出快捷键注册失败，保留原快捷键:', error)
       return false
-    } else {
-      this.currentShortcut = keyToRegister
-      this.isDoubleTapMode = false
-      console.log(`快捷键 ${keyToRegister} 注册成功`)
     }
-
-    return ret
   }
 
   /**
@@ -1745,11 +1726,14 @@ class WindowManager {
   }
 
   /**
-   * 注册应用快捷键
+   * 注册规范化后的应用快捷键。
+   * @param shortcut 用户组合键。
+   * @param target 指令。
+   * @returns 是否注册成功。
    */
   public registerAppShortcut(shortcut: string, target: string): boolean {
     try {
-      this.appShortcuts.set(shortcut, target)
+      this.appShortcuts.set(normalizeShortcut(shortcut, process.platform), target)
       console.log(`成功注册应用快捷键: ${shortcut} -> ${target}`)
       return true
     } catch (error) {
@@ -1759,10 +1743,12 @@ class WindowManager {
   }
 
   /**
-   * 注销应用快捷键
+   * 注销规范化后的应用快捷键。
+   * @param shortcut 用户组合键。
+   * @returns 无返回值。
    */
   public unregisterAppShortcut(shortcut: string): void {
-    this.appShortcuts.delete(shortcut)
+    this.appShortcuts.delete(normalizeShortcut(shortcut, process.platform))
     console.log(`成功注销应用快捷键: ${shortcut}`)
   }
 

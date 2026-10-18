@@ -1,3 +1,4 @@
+import { ZTOOLS_ECOSYSTEM_ENABLED, ECOSYSTEM_REMOVED_MESSAGE } from '../../shared/ecosystemPolicy'
 import {
   loadOfficialAccountSession,
   refreshOfficialAccountTokens
@@ -127,6 +128,7 @@ class OfficialAIService {
    * @throws 官方模型接口不可访问或响应格式无效时抛出错误
    */
   public async getCatalog(force = false): Promise<OfficialAiModelCatalog> {
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) throw new Error(ECOSYSTEM_REMOVED_MESSAGE)
     if (process.env.ZTOOLS_E2E === '1') return this.e2eCatalog()
     if (!force && this.catalogCache && this.catalogCache.expiresAt > Date.now()) {
       return this.catalogCache.value
@@ -244,6 +246,7 @@ class OfficialAIService {
    * @returns 当前账号可使用的官方模型选择项
    */
   public async getModelChoices(): Promise<AiModelChoice[]> {
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) return []
     const session = await this.loadUsableSession()
     if (!session?.token) return []
     const catalog = await this.getCatalog()
@@ -290,6 +293,7 @@ class OfficialAIService {
    * @returns 官方调用配置；未登录或未匹配时返回 null
    */
   public async resolveModel(modelRef?: string): Promise<ResolvedOfficialAiModel | null> {
+    if (!ZTOOLS_ECOSYSTEM_ENABLED) return null
     const session = await this.loadUsableSession()
     if (!session?.token) return null
     const catalog = await this.getCatalog()

@@ -36,12 +36,12 @@ import { PluginDialogAPI } from '../../src/main/api/plugin/dialog'
 import { getPluginDataPath } from '../../src/main/core/appData/appDataPaths'
 
 describe('plugin dialog get-path', () => {
-  const existingDataRoot = process.env.ZTOOLS_DATA_ROOT
+  const existingDataRoot = process.env.STOOLS_DATA_ROOT
   const testRoot = path.join(os.tmpdir(), 'ztools-dialog-test')
   let handler: ((event: any, name: string) => void) | undefined
 
   beforeEach(() => {
-    process.env.ZTOOLS_DATA_ROOT = testRoot
+    process.env.STOOLS_DATA_ROOT = testRoot
     ipcHandlers.clear()
     mockMkdirSync.mockReset()
     mockGetPath.mockReset().mockImplementation((name: string) => `/mock/${name}`)
@@ -49,9 +49,9 @@ describe('plugin dialog get-path', () => {
 
   afterEach(() => {
     if (existingDataRoot === undefined) {
-      delete process.env.ZTOOLS_DATA_ROOT
+      delete process.env.STOOLS_DATA_ROOT
     } else {
-      process.env.ZTOOLS_DATA_ROOT = existingDataRoot
+      process.env.STOOLS_DATA_ROOT = existingDataRoot
     }
   })
 

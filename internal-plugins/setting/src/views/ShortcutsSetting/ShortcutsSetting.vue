@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { changeBinding, readBindings, type ShortcutScope } from '../PluginShortcutsSetting/model'
 import { computed, nextTick, onMounted, ref } from 'vue'
+import { router } from '@/router'
 import { useToast, ShortcutEditor, AdaptiveIcon } from '@/components'
 import { weightedSearch } from '@/utils'
 import { useJumpFunction, useZtoolsSubInput } from '@/composables'
@@ -733,205 +735,75 @@ async function handleSave(
   }
 }
 
+/**
+ * 通过与插件快捷键汇总相同的事务保存绑定，失败时保留原键和数据库。
+ * @param scope 作用范围。
+ * @param recordedShortcut 新组合键。
+ * @param targetCommand 新指令。
+ * @param optimization 是否启用截图优化。
+ * @returns 保存完成后的 Promise。
+ */
+async function saveBinding(
+  scope: ShortcutScope,
+  recordedShortcut: string,
+  targetCommand: string,
+  optimization = false
+): Promise<void> {
+  try {
+    const api = window.ztools.internal
+    const records = await readBindings(api, scope)
+    const previous = editingShortcut.value
+      ? records.find((item) => item.id === editingShortcut.value!.id)
+      : undefined
+    if (editingShortcut.value && !previous) throw new Error('快捷键已被修改，请刷新后重试。')
+    await changeBinding(
+      api,
+      scope,
+      previous,
+      {
+        ...previous,
+        id: previous?.id || crypto.randomUUID(),
+        shortcut: recordedShortcut,
+        target: targetCommand,
+        enabled: previous?.enabled ?? true,
+        ...(scope === 'global'
+          ? { autoCopy: previous?.autoCopy ?? false, preScreenshotOptimization: optimization }
+          : {})
+      },
+      isMac.value ? 'darwin' : isWindows.value ? 'win32' : 'linux'
+    )
+    await Promise.all([loadGlobalShortcuts(), loadAppShortcuts()])
+    success('快捷键已保存')
+    closeEditor()
+  } catch (err) {
+    error(err instanceof Error ? err.message : '快捷键保存失败')
+  }
+}
+/**
+ * 保存全局快捷键。
+ * @param recordedShortcut 新组合键。
+ * @param targetCommand 新指令。
+ * @param preScreenshotOptimization 截图优化开关。
+ * @returns 保存完成后的 Promise。
+ */
 async function handleSaveGlobalShortcut(
   recordedShortcut: string,
   targetCommand: string,
   preScreenshotOptimization: boolean
 ): Promise<void> {
-  if (editingShortcut.value) {
-    const exists = globalShortcuts.value.some(
-      (s) => s.id !== editingShortcut.value!.id && s.shortcut === recordedShortcut
-    )
-    if (exists) {
-      warning('该快捷键已被其他指令占用，请使用其他快捷键')
-      return
-    }
-
-    const oldShortcut = editingShortcut.value.shortcut
-    const oldTarget = editingShortcut.value.target
-    const autoCopy = editingShortcut.value.autoCopy ?? false // 保留原有 autoCopy 配置
-    const oldPreScreenshotOptimization = editingShortcut.value.preScreenshotOptimization ?? false
-    const shouldRestorePreviousRegistration =
-      oldShortcut !== recordedShortcut ||
-      oldTarget !== targetCommand ||
-      oldPreScreenshotOptimization !== preScreenshotOptimization
-
-    try {
-      if (oldShortcut !== recordedShortcut) {
-        await window.ztools.internal.unregisterGlobalShortcut(oldShortcut)
-      }
-
-      const result = await window.ztools.internal.registerGlobalShortcut(
-        recordedShortcut,
-        targetCommand,
-        autoCopy,
-        preScreenshotOptimization
-      )
-
-      if (result.success) {
-        const index = globalShortcuts.value.findIndex((s) => s.id === editingShortcut.value!.id)
-        if (index >= 0) {
-          globalShortcuts.value[index].shortcut = recordedShortcut
-          globalShortcuts.value[index].target = targetCommand
-          globalShortcuts.value[index].preScreenshotOptimization = preScreenshotOptimization
-        }
-
-        await saveGlobalShortcuts()
-        success('快捷键更新成功!')
-        closeEditor()
-      } else {
-        if (shouldRestorePreviousRegistration) {
-          await window.ztools.internal.registerGlobalShortcut(
-            oldShortcut,
-            oldTarget,
-            autoCopy,
-            oldPreScreenshotOptimization
-          )
-        }
-        error(`快捷键注册失败: ${result.error}`)
-      }
-    } catch (err: any) {
-      if (shouldRestorePreviousRegistration) {
-        await window.ztools.internal.registerGlobalShortcut(
-          oldShortcut,
-          oldTarget,
-          autoCopy,
-          oldPreScreenshotOptimization
-        )
-      }
-      console.error('更新快捷键失败:', err)
-      error(`更新快捷键失败: ${err.message || '未知错误'}`)
-    }
-    return
-  }
-
-  const exists = globalShortcuts.value.some((s) => s.shortcut === recordedShortcut)
-  if (exists) {
-    warning('该快捷键已存在，请使用其他快捷键')
-    return
-  }
-
-  const newShortcut: GlobalShortcut = {
-    id: Date.now().toString(),
-    shortcut: recordedShortcut,
-    target: targetCommand,
-    enabled: true,
-    autoCopy: false,
-    preScreenshotOptimization
-  }
-
-  globalShortcuts.value.push(newShortcut)
-  await saveGlobalShortcuts()
-
-  try {
-    const result = await window.ztools.internal.registerGlobalShortcut(
-      recordedShortcut,
-      targetCommand,
-      false,
-      preScreenshotOptimization
-    )
-    if (result.success) {
-      success('快捷键添加成功!')
-      closeEditor()
-    } else {
-      globalShortcuts.value = globalShortcuts.value.filter((s) => s.id !== newShortcut.id)
-      await saveGlobalShortcuts()
-      error(`快捷键注册失败: ${result.error}`)
-    }
-  } catch (err: any) {
-    globalShortcuts.value = globalShortcuts.value.filter((s) => s.id !== newShortcut.id)
-    await saveGlobalShortcuts()
-    console.error('注册快捷键失败:', err)
-    error(`注册快捷键失败: ${err.message || '未知错误'}`)
-  }
+  await saveBinding('global', recordedShortcut, targetCommand, preScreenshotOptimization)
 }
-
+/**
+ * 保存应用内快捷键。
+ * @param recordedShortcut 新组合键。
+ * @param targetCommand 新指令。
+ * @returns 保存完成后的 Promise。
+ */
 async function handleSaveAppShortcut(
   recordedShortcut: string,
   targetCommand: string
 ): Promise<void> {
-  if (editingShortcut.value) {
-    const exists = appShortcuts.value.some(
-      (s) => s.id !== editingShortcut.value!.id && s.shortcut === recordedShortcut
-    )
-    if (exists) {
-      warning('该快捷键已被其他指令占用，请使用其他快捷键')
-      return
-    }
-
-    const oldShortcut = editingShortcut.value.shortcut
-
-    try {
-      if (oldShortcut !== recordedShortcut) {
-        await window.ztools.internal.unregisterAppShortcut(oldShortcut)
-      }
-
-      const result = await window.ztools.internal.registerAppShortcut(
-        recordedShortcut,
-        targetCommand
-      )
-
-      if (result.success) {
-        const index = appShortcuts.value.findIndex((s) => s.id === editingShortcut.value!.id)
-        if (index >= 0) {
-          appShortcuts.value[index].shortcut = recordedShortcut
-          appShortcuts.value[index].target = targetCommand
-        }
-
-        await saveAppShortcuts()
-        success('应用快捷键更新成功!')
-        closeEditor()
-      } else {
-        if (oldShortcut !== recordedShortcut) {
-          await window.ztools.internal.registerAppShortcut(
-            oldShortcut,
-            editingShortcut.value.target
-          )
-        }
-        error(`应用快捷键注册失败: ${result.error}`)
-      }
-    } catch (err: any) {
-      if (oldShortcut !== recordedShortcut) {
-        await window.ztools.internal.registerAppShortcut(oldShortcut, editingShortcut.value.target)
-      }
-      console.error('更新应用快捷键失败:', err)
-      error(`更新应用快捷键失败: ${err.message || '未知错误'}`)
-    }
-    return
-  }
-
-  const exists = appShortcuts.value.some((s) => s.shortcut === recordedShortcut)
-  if (exists) {
-    warning('该快捷键已存在，请使用其他快捷键')
-    return
-  }
-
-  const newShortcut: GlobalShortcut = {
-    id: Date.now().toString(),
-    shortcut: recordedShortcut,
-    target: targetCommand,
-    enabled: true
-  }
-
-  appShortcuts.value.push(newShortcut)
-  await saveAppShortcuts()
-
-  try {
-    const result = await window.ztools.internal.registerAppShortcut(recordedShortcut, targetCommand)
-    if (result.success) {
-      success('应用快捷键添加成功!')
-      closeEditor()
-    } else {
-      appShortcuts.value = appShortcuts.value.filter((s) => s.id !== newShortcut.id)
-      await saveAppShortcuts()
-      error(`应用快捷键注册失败: ${result.error}`)
-    }
-  } catch (err: any) {
-    appShortcuts.value = appShortcuts.value.filter((s) => s.id !== newShortcut.id)
-    await saveAppShortcuts()
-    console.error('注册应用快捷键失败:', err)
-    error(`注册应用快捷键失败: ${err.message || '未知错误'}`)
-  }
+  await saveBinding('app', recordedShortcut, targetCommand)
 }
 
 async function handleDelete(id: string): Promise<void> {
@@ -1125,7 +997,11 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
           </div>
         </div>
 
+        <p class="shortcut-intro">
+          统一管理插件功能、应用和系统指令的快捷键。全局快捷键可在其他应用中直接启动目标。
+        </p>
         <div class="panel-header">
+          <button class="btn" @click="router.push({ name: 'AllCommands' })">浏览全部功能</button>
           <button class="btn" @click="showAddEditor">{{ addButtonLabel }}</button>
         </div>
 
@@ -1442,6 +1318,12 @@ useJumpFunction<ShortcutsSettingJumpFunction>(async (state) => {
 </template>
 
 <style lang="less" scoped>
+.shortcut-intro {
+  margin: 16px 0;
+  line-height: 1.7;
+  opacity: 0.7;
+}
+
 .alias-slide-enter-active {
   transition:
     transform 0.2s ease-out,

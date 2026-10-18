@@ -147,13 +147,13 @@ describe('startupDataMigrations', () => {
       path.join(legacyUserDataPath, 'plugins', 'demo', 'logo.png')
     ).href
     const currentPluginLogo = pathToFileURL(
-      path.join(homeDir, '.ztools', 'plugins', 'current', 'logo.png')
+      path.join(homeDir, '.stools', 'plugins', 'current', 'logo.png')
     ).href
     const stores: Record<string, any> = {
       plugins: [
         {
           name: 'demo',
-          path: path.join(homeDir, '.ztools', 'plugins', 'demo'),
+          path: path.join(homeDir, '.stools', 'plugins', 'demo'),
           logo: oldPluginLogo,
           features: [{ code: 'demo', icon: oldPluginLogo }]
         },
@@ -173,12 +173,12 @@ describe('startupDataMigrations', () => {
     migrateLegacyFileUrls({ homeDir, legacyUserDataPath })
 
     const migratedPluginLogo = pathToFileURL(
-      path.join(homeDir, '.ztools', 'plugins', 'demo', 'logo.png')
+      path.join(homeDir, '.stools', 'plugins', 'demo', 'logo.png')
     ).href
     expect(mockDbPut).toHaveBeenCalledWith('plugins', [
       {
         name: 'demo',
-        path: path.join(homeDir, '.ztools', 'plugins', 'demo'),
+        path: path.join(homeDir, '.stools', 'plugins', 'demo'),
         logo: migratedPluginLogo,
         features: [{ code: 'demo', icon: migratedPluginLogo }]
       },
@@ -188,7 +188,7 @@ describe('startupDataMigrations', () => {
       { name: 'Demo', type: 'plugin', icon: migratedPluginLogo }
     ])
     expect(mockDbPut).toHaveBeenCalledWith('settings-general', {
-      avatar: pathToFileURL(path.join(homeDir, '.ztools', 'avatar', 'avatar.png')).href,
+      avatar: pathToFileURL(path.join(homeDir, '.stools', 'avatar', 'avatar.png')).href,
       homepage: 'https://example.com/image.png'
     })
 

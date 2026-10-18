@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { registerProductHandler } from '../../core/productIpc'
 import aiProviderService from '../../core/aiProviderService.js'
 import officialAIService from '../../core/officialAIService.js'
 import type {
@@ -26,21 +26,22 @@ class AiModelsAPI {
    * @returns 无返回值
    */
   private setupIPC(): void {
-    ipcMain.handle('ai-providers:get-all', () => this.getAllProviders())
-    ipcMain.handle('ai-providers:get-official', () => this.getOfficialProvider())
-    ipcMain.handle('ai-providers:add', (_event, provider: AiProviderInput) =>
+    registerProductHandler('ai-providers:get-all', () => this.getAllProviders())
+    registerProductHandler('ai-providers:get-official', () => this.getOfficialProvider())
+    registerProductHandler('ai-providers:add', (_event, provider: AiProviderInput) =>
       this.addProvider(provider)
     )
-    ipcMain.handle('ai-providers:update', (_event, provider: AiProviderInput) =>
+    registerProductHandler('ai-providers:update', (_event, provider: AiProviderInput) =>
       this.updateProvider(provider)
     )
-    ipcMain.handle('ai-providers:delete', (_event, providerId: string) =>
+    registerProductHandler('ai-providers:delete', (_event, providerId: string) =>
       this.deleteProvider(providerId)
     )
-    ipcMain.handle('ai-providers:set-enabled', (_event, providerId: string, enabled: boolean) =>
-      this.setProviderEnabled(providerId, enabled)
+    registerProductHandler(
+      'ai-providers:set-enabled',
+      (_event, providerId: string, enabled: boolean) => this.setProviderEnabled(providerId, enabled)
     )
-    ipcMain.handle('ai-providers:fetch-models', (_event, apiUrl: string, apiKey: string) =>
+    registerProductHandler('ai-providers:fetch-models', (_event, apiUrl: string, apiKey: string) =>
       this.fetchModels(apiUrl, apiKey)
     )
   }

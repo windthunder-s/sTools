@@ -40,12 +40,32 @@ export interface PluginMarketDownloadProgress {
 }
 
 const api = {
+  fileSearch: {
+    search: (
+      query: string,
+      filter: import('../shared/unifiedSearch').EverythingFilter,
+      options?: { offset?: number; version?: number }
+    ) => ipcRenderer.invoke('file-search:search', query, filter, options),
+    nativeService: (action: 'install' | 'uninstall') =>
+      ipcRenderer.invoke('file-search:native-service', action),
+    status: (options?: { watchQuery?: boolean }) =>
+      ipcRenderer.invoke('file-search:status', options),
+    configure: (config: import('../shared/fileSearch').FileSearchConfig) =>
+      ipcRenderer.invoke('file-search:configure', config),
+    chooseFolder: () => ipcRenderer.invoke('file-search:choose-folder'),
+    refresh: () => ipcRenderer.invoke('file-search:refresh')
+  },
+  everything: {
+    search: (query: string, filter: import('../shared/unifiedSearch').EverythingFilter) =>
+      ipcRenderer.invoke('everything:search', query, filter),
+    cancel: () => ipcRenderer.send('everything:cancel')
+  },
   getApps: () => ipcRenderer.invoke('get-apps'),
   getSystemSettings: () => ipcRenderer.invoke('get-system-settings'),
   isWindows: () => ipcRenderer.invoke('is-windows'),
   launch: (options: {
     path: string
-    type?: 'direct' | 'plugin' | 'builtin' | 'file'
+    type?: 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
     featureCode?: string
     param?: any
     name?: string
@@ -345,7 +365,7 @@ const api = {
   onIpcLaunch: (
     callback: (options: {
       path: string
-      type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file'
+      type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
       featureCode?: string
       param?: any
       name?: string
@@ -363,14 +383,16 @@ const api = {
     shortcut: string,
     target: string,
     autoCopy?: boolean,
-    preScreenshotOptimization?: boolean
+    preScreenshotOptimization?: boolean,
+    replaceTarget?: string
   ) =>
     ipcRenderer.invoke(
       'register-global-shortcut',
       shortcut,
       target,
       autoCopy,
-      preScreenshotOptimization
+      preScreenshotOptimization,
+      replaceTarget
     ),
   unregisterGlobalShortcut: (shortcut: string) =>
     ipcRenderer.invoke('unregister-global-shortcut', shortcut),
@@ -586,12 +608,14 @@ declare global {
       }
     }
     ztools: {
+      fileSearch: import('@shared/fileSearch').FileSearchAPI
+      everything: import('@shared/unifiedSearch').EverythingSearchAPI
       getApps: () => Promise<Command[]>
       getSystemSettings: () => Promise<any[]>
       isWindows: () => Promise<boolean>
       launch: (options: {
         path: string
-        type?: 'direct' | 'plugin' | 'builtin' | 'file'
+        type?: 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
         featureCode?: string
         param?: any
         name?: string
@@ -729,7 +753,7 @@ declare global {
       onIpcLaunch: (
         callback: (options: {
           path: string
-          type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file'
+          type?: 'app' | 'direct' | 'plugin' | 'builtin' | 'file' | 'local-file'
           featureCode?: string
           param?: any
           name?: string
@@ -748,7 +772,8 @@ declare global {
         shortcut: string,
         target: string,
         autoCopy?: boolean,
-        preScreenshotOptimization?: boolean
+        preScreenshotOptimization?: boolean,
+        replaceTarget?: string
       ) => Promise<{ success: boolean; error?: string }>
       unregisterGlobalShortcut: (shortcut: string) => Promise<{ success: boolean; error?: string }>
       updateGlobalShortcutConfig: (

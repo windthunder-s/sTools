@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; connect-src 'none'"
+    />
+    <title>sTools 贴图</title>
+    <link rel="stylesheet" href="capture.css" />
+  </head>
+  <body>
+    <div class="titlebar">
+      <div class="pin-tools">
+        <span>贴图</span
+        ><label
+          >透明度<input
+            id="opacity"
+            aria-label="贴图透明度"
+            type="range"
+            min="20"
+            max="100"
+            value="100" /></label
+        ><button id="copy">复制</button><button id="save">保存</button
+        ><button id="close" aria-label="关闭贴图">×</button>
+      </div>
+    </div>
+    <img class="pin-image" alt="置顶截图" />
+    <script type="module" src="pin.mjs"></script>
+  </body>
+</html>

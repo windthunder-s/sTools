@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:"
+    />
+    <title>本地工具</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <div><b>本地工具</b><span>Everything · Snipaste</span></div>
+      <nav>
+        <button id="search-tab" class="selected">文件搜索</button
+        ><button id="settings-tab">工具设置</button>
+      </nav>
+    </header>
+    <main id="search-panel">
+      <div class="search-row">
+        <input
+          id="query"
+          aria-label="搜索文件或文件夹"
+          placeholder="文件名或 Everything 表达式，例如 ext:pdf"
+          autocomplete="off"
+        /><select id="filter" aria-label="结果类型">
+          <option value="all">全部</option>
+          <option value="file">文件</option>
+          <option value="folder">文件夹</option>
+        </select>
+      </div>
+      <div class="toolbar">
+        <span id="search-status" role="status">输入关键词开始搜索</span
+        ><button id="snip">Snipaste 截图</button><button id="paste">贴图</button>
+      </div>
+      <div id="results" role="listbox" aria-label="文件搜索结果" tabindex="0"></div>
+      <footer>
+        ↑ ↓ 选择 · Enter 打开 · Ctrl+Enter 定位 · Ctrl+Shift+C 复制路径<span
+          >此面板显示前 100 项；主搜索可继续加载</span
+        >
+      </footer>
+    </main>
+    <main id="settings-panel" hidden>
+      <h2>连接本机工具</h2>
+      <p>工具在本机运行，搜索结果显示在 sTools 中。无需登录。</p>
+      <form id="config-form">
+        <label
+          >Everything.exe<input name="everything" placeholder="留空自动检测常用安装目录"
+        /></label>
+        <label
+          >ES 兼容组件（可选，SDK 搜索无需配置）<input name="es" placeholder="留空即可"
+        /></label>
+        <label>Snipaste.exe<input name="snipaste" placeholder="留空自动检测常用安装目录" /></label>
+        <details>
+          <summary>高级设置</summary>
+          <label
+            >Everything 实例名称<input
+              name="instance"
+              placeholder="默认留空；自定义实例需填写一致的名称"
+          /></label>
+        </details>
+        <div class="actions">
+          <button type="submit" class="primary">保存并检测</button
+          ><button id="detect" type="button">刷新检测</button>
+        </div>
+      </form>
+      <p id="tool-status" role="status"></p>
+      <p class="hint">
+        在“快捷键管理 → 浏览全部功能”中搜索 Everything 搜索、Snipaste 截图或 Snipaste
+        贴图，即可绑定全局快捷键。
+      </p>
+    </main>
+    <div id="message" role="alert" hidden></div>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -11,6 +11,9 @@ import updaterAPI from './updater'
 import aiModelsAPI from './renderer/aiModels'
 import appsAPI from './renderer/commands'
 import localShortcutsAPI from './renderer/localShortcuts'
+import { initEverythingSearch } from './renderer/everything'
+import { initFileSearch } from './renderer/fileSearch'
+import { initCaptureTools } from './renderer/captureTools'
 import pluginsAPI from './renderer/plugins'
 import settingsAPI from './renderer/settings'
 import storageAPI from './renderer/storage'
@@ -117,6 +120,9 @@ class APIManager {
     systemSettingsAPI.init()
     syncAPI.init(mainWindow, pluginManager)
     localShortcutsAPI.init(mainWindow)
+    initEverythingSearch(mainWindow)
+    initFileSearch(mainWindow)
+    initCaptureTools(mainWindow, pluginManager)
     localShortcutsAPI.setCommandsCacheInvalidator(() => appsAPI.invalidateCommandsCache(false))
 
     // 初始化插件 API 统一分发器（必须在插件 API 初始化之前）

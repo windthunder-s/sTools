@@ -1,12 +1,8 @@
-import { app, dialog, shell } from 'electron'
+import { app, dialog } from 'electron'
 import './core/appData/configureAppDataRoot'
-import {
-  checkRuntimeCompatibility,
-  EXPECTED_ELECTRON_VERSION,
-  FULL_INSTALL_RELEASE_URL
-} from './runtimeCompatibility'
+import { checkRuntimeCompatibility, EXPECTED_ELECTRON_VERSION } from './runtimeCompatibility'
 
-if (process.platform === 'win32') app.setAppUserModelId('top.z-tools')
+if (process.platform === 'win32') app.setAppUserModelId('dev.stools.desktop')
 
 const gotTheLock = app.requestSingleInstanceLock()
 const runtimeCompatibility = checkRuntimeCompatibility({
@@ -15,22 +11,23 @@ const runtimeCompatibility = checkRuntimeCompatibility({
   runtimeElectronVersion: process.versions.electron
 })
 
+/**
+ * 提示 sTools 运行时不匹配并退出，避免引导安装上游产品。
+ * @returns 提示关闭且应用退出后结束的 Promise。
+ */
 async function showBlockingRuntimePrompt(): Promise<void> {
   try {
     await app.whenReady()
-    const result = await dialog.showMessageBox({
+    await dialog.showMessageBox({
       type: 'warning',
-      title: '需要更新 ZTools',
+      title: '需要重新安装 sTools',
       message: '当前版本需要升级后才能继续使用',
-      detail:
-        'ZTools 的基础组件已经升级，当前版本无法直接完成更新。请安装最新完整版本，您的数据、设置和插件都会保留。',
-      buttons: ['下载最新版本', '退出应用'],
+      detail: 'sTools 的 Electron 运行时与源码版本不匹配。请使用本项目生成的完整安装包重新安装。',
+      buttons: ['退出应用'],
       defaultId: 0,
-      cancelId: 1,
+      cancelId: 0,
       noLink: true
     })
-
-    if (result.response === 0) await shell.openExternal(FULL_INSTALL_RELEASE_URL)
   } catch (error) {
     console.error('[Bootstrap] 显示 Electron 兼容性提示失败:', error)
   } finally {

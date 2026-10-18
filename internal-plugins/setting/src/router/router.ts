@@ -22,7 +22,7 @@ export type MenuRouterItemType = (RouteRecord | RouteRecordRaw) & {
 const homeRoutes: MenuRouterItemType[] = [
   {
     path: '/',
-    redirect: '/generalSetting'
+    redirect: '/shortcuts'
   },
   {
     path: '/generalSetting',
@@ -41,7 +41,7 @@ const homeRoutes: MenuRouterItemType[] = [
     component: () => import('@/views/ShortcutsSetting/ShortcutsSetting.vue'),
     meta: {
       menu: {
-        label: '快捷键',
+        label: '快捷键管理',
         icon: 'i-z-keyboard'
       }
     }
@@ -52,21 +52,22 @@ const homeRoutes: MenuRouterItemType[] = [
     component: () => import('@/views/PluginsSetting/PluginsSetting.vue'),
     meta: {
       menu: {
-        label: '已安装插件',
+        label: '功能与插件',
         icon: 'i-z-plugin'
       }
     }
   },
   {
+    path: '/pluginShortcuts',
+    name: 'PluginShortcuts',
+    component: () => import('@/views/PluginShortcutsSetting/PluginShortcutsSetting.vue'),
+    meta: { menu: { label: '插件快捷键', icon: 'i-z-keyboard' } }
+  },
+  {
     path: '/market',
     name: 'Market',
     component: () => import('@/views/PluginMarketSetting/PluginMarketSetting.vue'),
-    meta: {
-      menu: {
-        label: '插件市场',
-        icon: 'i-z-store'
-      }
-    }
+    meta: { menu: { label: '插件市场', icon: 'i-z-store' } }
   },
   {
     path: '/providers',
@@ -124,17 +125,6 @@ const homeRoutes: MenuRouterItemType[] = [
     }
   },
   {
-    path: '/sync',
-    name: 'Sync',
-    component: () => import('@/views/SyncSetting/SyncSetting.vue'),
-    meta: {
-      menu: {
-        label: '数据同步',
-        icon: 'i-z-cloud'
-      }
-    }
-  },
-  {
     path: '/debug',
     name: 'Debug',
     component: () => import('@/views/DebugSetting/DebugSetting.vue'),
@@ -170,12 +160,7 @@ const homeRoutes: MenuRouterItemType[] = [
   {
     path: '/account',
     name: 'Account',
-    component: () => import('@/views/AccountSetting/AccountSetting.vue')
-  },
-  {
-    path: '/notifications',
-    name: 'Notifications',
-    component: () => import('@/views/NotificationCenter/NotificationCenter.vue')
+    component: () => import('@/views/AccountSetting/LocalLogin.vue')
   },
   {
     path: '/pluginInstaller',
@@ -186,5 +171,5 @@ const homeRoutes: MenuRouterItemType[] = [
 
 export const router = createRouter({
   history: createWebHashHistory(),
-  routes: homeRoutes
+  routes: [...homeRoutes, { path: '/:pathMatch(.*)*', redirect: '/shortcuts' }]
 })

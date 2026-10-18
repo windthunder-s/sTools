@@ -278,3 +278,28 @@ describe('PluginInstallerAPI market download URL resolution', () => {
     expect(downloadUrl).toBe('https://example.test/demo.zip')
   })
 })
+
+describe('market install boundaries', () => {
+  it('prevents replacing bundled functionality', async () => {
+    const { installer } = createInstaller()
+    expect(await installer.installPluginFromMarket({ name: 'local-tools' })).toMatchObject({
+      success: false,
+      error: expect.stringContaining('内置')
+    })
+    expect(requestPluginMarket).not.toHaveBeenCalled()
+  })
+  it('resolves the selected plugin from the official service instead of accepting caller download URLs', async () => {
+    vi.mocked(requestPluginMarket).mockResolvedValue({
+      status: 200,
+      data: { zpxDownloadUrl: 'https://example.test/verified.zpx' }
+    } as any)
+    const { installer } = createInstaller()
+    expect(
+      await (installer as any).resolveMarketDownloadUrl({
+        name: 'demo',
+        downloadUrl: 'https://untrusted.test/package.zpx'
+      })
+    ).toBe('https://example.test/verified.zpx')
+    expect(requestPluginMarket).toHaveBeenCalledTimes(1)
+  })
+})

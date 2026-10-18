@@ -13,7 +13,7 @@ const BALL_SIZE = 48
 class FloatingBallManager {
   private ballWindow: BrowserWindow | null = null
   private enabled = false
-  private letter = 'Z' // 悬浮球显示的文字，默认 Z
+  private letter = 'S' // 悬浮球显示的文字，默认 S
   private doubleClickCommand = '' // 悬浮球双击目标指令
   // 拖拽状态：记录拖拽开始时鼠标相对窗口左上角的偏移
   private dragOffsetX = 0
@@ -35,7 +35,7 @@ class FloatingBallManager {
     try {
       const data = databaseAPI.dbGet('settings-general')
       this.enabled = data?.floatingBallEnabled ?? false
-      this.letter = data?.floatingBallLetter || 'Z'
+      this.letter = data?.floatingBallLetter || 'S'
       this.doubleClickCommand = data?.floatingBallDoubleClickCommand || ''
 
       if (this.enabled) {
@@ -338,7 +338,7 @@ class FloatingBallManager {
    * 设置悬浮球显示文字
    */
   public setLetter(letter: string): { success: boolean } {
-    this.letter = letter || 'Z'
+    this.letter = letter || 'S'
 
     // 通知悬浮球窗口更新文字
     if (this.ballWindow && !this.ballWindow.isDestroyed()) {
